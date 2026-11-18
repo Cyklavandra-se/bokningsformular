@@ -9,6 +9,8 @@ Ett gemensamt bokningsformulär (Contact Form 7) för både cykel- och vandrings
 
 ## Sidan Bokningsformulär
 
+Överst på sidan står kortkoden för bokningsformuläret, färdig att kopiera. Klistra in den på resans sida och byt `RESKOD` mot resans reskod. Resan dyker upp i tabellen så fort sidan är sparad. Där kan också formulärmallen visas och kopieras.
+
 Överst finns filtret **Typ** och sökrutan. Som standard visas bara cykelresorna. Välj **Vandring** eller **Alla** för att se fler. Kryssa i **Klar** när en resa är genomgången. Pilen ↗ bredvid resans namn öppnar resans sida i en ny flik, och namnet öppnar sidan för redigering.
 
 ## Eurofun-resor (Eurobike, Radweg-Reisen, Velociped)
@@ -32,7 +34,7 @@ På vandringsresor försvinner raden med längd, cykel och hjälm för varje res
 
 ## Leverantör
 
-Varje resa har en kolumn **Leverantör**. Den fylls i från arket *Booking Codes*:
+Varje resa har en kolumn **Leverantör**. Tillägget har en inbyggd lista med leverantörerna från arket *Booking Codes* (flikarna BIKE och HIKE), som används när leverantören inte är ifylld. Nya resor som saknas i listan kan fyllas i direkt i tabellen, eller läsas in från arket:
 
 1. Öppna fliken **BIKE** och välj **Arkiv → Ladda ned → Kommaavgränsade värden (.csv)**.
 2. Läs in filen under **Cykla&Vandra → Bokningsformulär → Importera CSV**. Resorna matchas via **Tripcode** och annars via **Vår hemsida**.

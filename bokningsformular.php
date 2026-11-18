@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Cykla & Vandra – Bokningsformulär
  * Description: Ett bokningsformulär (Contact Form 7) för både cykel- och vandringsresor. Styr vilka cykeltyper, hjälmval och försäkringar som visas för varje resa, utifrån reskoden (tripcode) i kortkoden.
- * Version: 1.4.1
+ * Version: 1.5.0
  * Author: Cykla & Vandra
  * Requires at least: 6.0
  * Requires PHP: 7.4
@@ -125,12 +125,34 @@ final class CV_Bokningsval {
 		return '';
 	}
 
+	/**
+	 * Leverantören enligt arket Booking Codes (data/leverantorer.php). Saknas
+	 * reskoden där känns S-Capes koder igen på mönstret, t.ex. ITSB290 och FRSW260.
+	 */
+	public static function supplier_for( $code ) {
+		static $map = null;
+		if ( null === $map ) {
+			$map = include __DIR__ . '/data/leverantorer.php';
+			$map = is_array( $map ) ? $map : array();
+		}
+		$code = self::normalize_code( $code );
+		if ( isset( $map[ $code ] ) ) {
+			return $map[ $code ];
+		}
+		if ( preg_match( '/^[A-Z]{2}S[BWM][A-Z]*\d/', strtoupper( $code ) ) ) {
+			return 'S-Cape';
+		}
+		return '';
+	}
+
 	/** Standardläge för resor som inte är ifyllda. */
 	public static function defaults( $code = '' ) {
+		$supplier = '' === $code ? '' : self::supplier_for( $code );
+		$helmet   = self::helmet_rule( $code, $supplier );
 		return array(
 			'typ'       => '',
-			'leverantor' => '',
-			'hjalm'     => self::helmet_rule( $code ) ? self::helmet_rule( $code ) : 'hyra',
+			'leverantor' => $supplier,
+			'hjalm'     => $helmet ? $helmet : 'hyra',
 			'vanlig'    => 1,
 			'el'        => 1,
 			'sportig'   => self::is_eurofun( $code ) ? 1 : 0,
@@ -180,6 +202,9 @@ final class CV_Bokningsval {
 		}
 		if ( ! array_key_exists( $s['typ'], self::type_choices() ) ) {
 			$s['typ'] = self::guess_type( $post_id );
+		}
+		if ( '' === trim( (string) $s['leverantor'] ) ) {
+			$s['leverantor'] = self::supplier_for( $code );
 		}
 		return $s;
 	}
@@ -544,6 +569,94 @@ final class CV_Bokningsval {
 		return $verktyg;
 	}
 
+	/**
+	 * Formulär i Contact Form 7 som har det dolda fältet tripcode, med kortkoden
+	 * färdig att klistra in. new_template = formuläret har mallens cvb-klasser.
+	 */
+	public static function booking_forms() {
+		if ( ! class_exists( 'WPCF7_ContactForm' ) ) {
+			return array();
+		}
+		$forms = array();
+		$posts = get_posts(
+			array(
+				'post_type'        => 'wpcf7_contact_form',
+				'post_status'      => 'any',
+				'numberposts'      => -1,
+				'suppress_filters' => true, // Alla språk i WPML.
+			)
+		);
+		foreach ( $posts as $post ) {
+			$form = WPCF7_ContactForm::get_instance( $post );
+			if ( ! $form ) {
+				continue;
+			}
+			$body = (string) $form->prop( 'form' );
+			if ( false === strpos( $body, 'tripcode' ) ) {
+				continue;
+			}
+			$lang    = '';
+			$details = apply_filters( 'wpml_post_language_details', null, (int) $post->ID );
+			if ( is_array( $details ) && ! empty( $details['language_code'] ) ) {
+				$lang = strtoupper( $details['language_code'] );
+			}
+			$forms[] = array(
+				'title'        => $form->title(),
+				'lang'         => $lang,
+				'shortcode'    => preg_replace( '/\]$/', ' tripcode="RESKOD"]', $form->shortcode() ),
+				'new_template' => false !== strpos( $body, 'cvb-cykel' ),
+			);
+		}
+		// Formulär med den nya mallen först.
+		usort(
+			$forms,
+			function ( $a, $b ) {
+				return (int) $b['new_template'] - (int) $a['new_template'];
+			}
+		);
+		return $forms;
+	}
+
+	private static function render_shortcode_box() {
+		$forms    = self::booking_forms();
+		$template = (string) file_get_contents( __DIR__ . '/formularmall-sv.txt' ); // phpcs:ignore WordPress.WP.AlternativeFunctions
+		?>
+		<div class="cvb-box">
+			<h2>Så lägger du in bokningsformuläret på en resa</h2>
+			<p>
+				Klistra in kortkoden på resans sida och byt <code>RESKOD</code> mot resans reskod (kolumnen Tripcode i Booking Codes).
+				Resan dyker upp i tabellen nedan så fort sidan är sparad, även som utkast. Det behövs ingen uppdateringsknapp.
+			</p>
+			<?php if ( $forms ) : ?>
+				<table class="cvb-shortcodes">
+					<?php foreach ( $forms as $f ) : ?>
+						<tr>
+							<td>
+								<strong><?php echo esc_html( $f['title'] ); ?></strong>
+								<?php if ( $f['lang'] ) : ?><span class="cvb-langs"><?php echo esc_html( $f['lang'] ); ?></span><?php endif; ?>
+								<?php if ( ! $f['new_template'] ) : ?><br><span class="cvb-old">Har inte den nya mallen än</span><?php endif; ?>
+							</td>
+							<td><input type="text" readonly value="<?php echo esc_attr( $f['shortcode'] ); ?>" class="cvb-copy-src code" onfocus="this.select()"></td>
+							<td><button type="button" class="button cvb-copy">Kopiera</button></td>
+						</tr>
+					<?php endforeach; ?>
+				</table>
+			<?php else : ?>
+				<p>
+					Inget formulär i Contact Form 7 har fältet <code>tripcode</code> än. Skapa ett formulär under <strong>Kontakt → Lägg till nytt</strong>
+					och klistra in mallen nedan under fliken Formulär. Kortkoden visas sedan här.
+				</p>
+			<?php endif; ?>
+			<details>
+				<summary>Visa formulärmallen (fliken Formulär i Contact Form 7)</summary>
+				<p>Klistra in i ett nytt eller befintligt bokningsformulär. Fältnamnen är desamma som förut, så mailen och Flamingo fungerar som tidigare.</p>
+				<textarea readonly rows="12" class="large-text code cvb-copy-src"><?php echo esc_textarea( $template ); ?></textarea>
+				<p><button type="button" class="button cvb-copy">Kopiera mallen</button></p>
+			</details>
+		</div>
+		<?php
+	}
+
 	public static function render_page() {
 		if ( ! current_user_can( self::CAP ) ) {
 			return;
@@ -572,14 +685,19 @@ final class CV_Bokningsval {
 		<div class="wrap cvb-wrap">
 			<h1>Bokningsformulär</h1>
 			<?php self::render_notices(); ?>
-			<p>
+			<?php self::render_shortcode_box(); ?>
+			<details class="cvb-help">
+				<summary>Så fungerar tabellen</summary>
+				<p>
 				Varje rad är en reskod som finns i en kortkod på sajten. Nya resor dyker upp här automatiskt.
 				Typen gissas utifrån adressen (<code>/vandra/</code> = vandring). På vandringsresor visas inte längd, cykel och hjälm.
 				Cykelresor som inte är markerade som <strong>Klar</strong> visas i gult och använder standardläget
 				(vanlig cykel + elcykel, hyrhjälm, egen cykel tillåten, inga försäkringar) tills ni sparar dem.
 				Resor från Eurobike, Radweg-Reisen och Velociped (reskoder som börjar med landskod och bindestreck, t.ex. <code>DE-</code>)
 				har sportig cykel och ingen hjälmhyra. På S-Capes resor i Frankrike (<code>FRSB…</code>) ingår hjälmen.
-			</p>
+				Leverantören hämtas från arket Booking Codes (inbyggd lista) om den inte är ifylld.
+				</p>
+			</details>
 			<p>
 				<strong><?php echo esc_html( count( $tours ) ); ?></strong> resor,
 				<strong><?php echo esc_html( $not_done ); ?></strong> cykelresor ej klara.
@@ -632,7 +750,7 @@ final class CV_Bokningsval {
 								</div>
 							</td>
 							<td class="cvb-code">
-								<input type="text" name="<?php echo $n; ?>[leverantor]" value="<?php echo esc_attr( $s['leverantor'] ); ?>" list="cvb-suppliers" class="cvb-supplier" placeholder="Leverantör" aria-label="Leverantör">
+								<input type="text" name="<?php echo $n; ?>[leverantor]" value="<?php echo esc_attr( $s['leverantor'] ); ?>" list="cvb-suppliers" class="cvb-supplier" placeholder="Leverantör saknas" aria-label="Leverantör">
 								<code><?php echo esc_html( $code ); ?></code>
 							</td>
 							<td>
@@ -705,6 +823,12 @@ final class CV_Bokningsval {
 			.cvb-badge { display:inline-block; margin-left:6px; padding:1px 6px; border-radius:3px; background:#dba617; color:#fff; font-size:11px; }
 			.cvb-table tr.cvb-hike td.cvb-bike { opacity: .3; }
 			.cvb-langs { margin-left:6px; color:#787c82; font-size:11px; }
+			.cvb-box { background:#fff; border:1px solid #c3c4c7; border-left:4px solid #2271b1; padding:4px 16px 12px; margin:12px 0 16px; max-width:1100px; }
+			.cvb-box h2 { margin:12px 0 4px; font-size:15px; }
+			.cvb-shortcodes td { padding:4px 12px 4px 0; vertical-align:middle; }
+			.cvb-shortcodes input { width:min(560px, 60vw); }
+			.cvb-old { color:#996800; font-size:12px; }
+			.cvb-help summary, .cvb-box summary { cursor:pointer; color:#2271b1; margin:6px 0; }
 			.cvb-filter { display:flex; flex-wrap:wrap; gap:8px 16px; align-items:center; }
 			.cvb-shown { color:#646970; }
 			.cvb-table .cvb-code { white-space: nowrap; }
@@ -746,6 +870,25 @@ final class CV_Bokningsval {
 				} );
 				shown.textContent = 'Visar ' + n + ' resor';
 			}
+			// Kopiera kortkod eller mall.
+			document.querySelectorAll( '.cvb-copy' ).forEach( function ( btn ) {
+				btn.addEventListener( 'click', function () {
+					var src = btn.closest( 'tr, details' ).querySelector( '.cvb-copy-src' );
+					var done = function () {
+						var old = btn.textContent;
+						btn.textContent = 'Kopierat!';
+						setTimeout( function () { btn.textContent = old; }, 1500 );
+					};
+					if ( navigator.clipboard && window.isSecureContext ) {
+						navigator.clipboard.writeText( src.value ).then( done );
+					} else {
+						src.select();
+						document.execCommand( 'copy' );
+						done();
+					}
+				} );
+			} );
+
 			// Typ: knappen C/V öppnar en liten meny med Cykel och Vandring.
 			var labels = { cykel: 'Cykel', vandring: 'Vandring' };
 			function closeMenus( except ) {

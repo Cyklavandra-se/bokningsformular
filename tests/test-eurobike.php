@@ -107,5 +107,35 @@ ok( $d && 'nej' === $d['hjalm'], 'Radweg-Reisen får Hjälm erbjuds inte' );
 ok( ! isset( $GLOBALS['opts']['cvb_settings']['DE-DORDP-08X'] ), 'reskoder som inte finns på sajten sparas inte' );
 ok( 2 === $res['imported'] && 1 === count( $res['unmatched'] ) && false !== strpos( $res['unmatched'][0], 'ITSB290' ), 'resor som inte finns på sajten rapporteras' );
 
+echo "\n--- Leverantör från Booking Codes ---\n";
+$GLOBALS['opts'] = array();
+ok( 'Megasport' === CV_Bokningsval::supplier_for( 'Algarve Coastal Biking' ), 'Algarve Coastal Biking: Megasport' );
+ok( 'Dutch Bike tours' === CV_Bokningsval::supplier_for( 'Trip: 05-11' ), 'Trip: 05-11: Dutch Bike tours' );
+ok( 'Jotunheimen Travel' === CV_Bokningsval::supplier_for( 'Mjölkvägen &amp; Rallarvägen' ), 'reskod med &amp; hittas' );
+ok( 'S-Cape' === CV_Bokningsval::supplier_for( 'ITSB999' ), 'okänd S-Cape-kod känns igen på mönstret' );
+ok( '' === CV_Bokningsval::supplier_for( 'BE999999' ), 'okänd kod utan mönster: tom' );
+ok( 'Megasport' === CV_Bokningsval::settings_for( 'Algarve Coastal Biking', 0 )['leverantor'], 'ny resa får leverantören från listan' );
+$GLOBALS['opts']['cvb_settings']['Algarve Coastal Biking'] = array( 'typ' => 'cykel', 'leverantor' => '' );
+ok( 'Megasport' === CV_Bokningsval::settings_for( 'Algarve Coastal Biking', 0 )['leverantor'], 'sparad tom leverantör fylls i från listan' );
+$GLOBALS['opts']['cvb_settings']['Algarve Coastal Biking']['leverantor'] = 'Annan';
+ok( 'Annan' === CV_Bokningsval::settings_for( 'Algarve Coastal Biking', 0 )['leverantor'], 'ifylld leverantör har företräde' );
+ok( 'nej' === CV_Bokningsval::settings_for( 'DE-MORWT-06', 0 )['hjalm'], 'Velociped-resa: Hjälm erbjuds inte' );
+
+echo "\n--- Kortkod för formulär ---\n";
+if ( ! function_exists( 'get_posts' ) ) {
+	function get_posts( $a ) { return array( (object) array( 'ID' => 1 ), (object) array( 'ID' => 2 ), (object) array( 'ID' => 3 ) ); }
+}
+class Fake_Form {
+	public $id;
+	function __construct( $id ) { $this->id = $id; }
+	function prop( $k ) { return array( 1 => 'utan reskod', 2 => '[hidden tripcode default:shortcode_attr]', 3 => '<div class="resenar-rad cvb-cykel">[hidden tripcode default:shortcode_attr]' )[ $this->id ]; }
+	function title() { return 'Form ' . $this->id; }
+	function shortcode() { return '[contact-form-7 id="abc' . $this->id . '" title="Form ' . $this->id . '"]'; }
+}
+$forms = CV_Bokningsval::booking_forms();
+ok( 2 === count( $forms ), 'bara formulär med tripcode listas' );
+ok( 'Form 3' === $forms[0]['title'] && $forms[0]['new_template'], 'formulär med nya mallen först' );
+ok( '[contact-form-7 id="abc3" title="Form 3" tripcode="RESKOD"]' === $forms[0]['shortcode'], 'kortkoden får tripcode: ' . $forms[0]['shortcode'] );
+
 echo $fel ? "\n$fel FEL\n" : "\nAlla OK\n";
 exit( $fel ? 1 : 0 );

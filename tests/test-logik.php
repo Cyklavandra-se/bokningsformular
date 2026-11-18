@@ -13,7 +13,7 @@ function wp_unslash($s){return $s;}
 function apply_filters($h,$v){return $v;}
 function remove_accents($s){return strtr($s,['å'=>'a','ä'=>'a','ö'=>'o','Å'=>'A','Ä'=>'A','Ö'=>'O']);}
 class WPCF7_Pipes{public $r;function __construct($r){$this->r=$r;}}
-class WPCF7_ContactForm{static $attr='';static function get_current(){return new self;} function shortcode_attr($k){return self::$attr;}}
+class WPCF7_ContactForm{static $attr='';static function get_current(){return new self;} function shortcode_attr($k){return self::$attr;} static function get_instance($p){return new Fake_Form($p->ID);}}
 class Tag{public $type,$basetype,$name,$options,$raw_values,$values,$labels,$pipes;}
 require __DIR__.'/../bokningsformular.php';
 function mk($type,$name,$vals,$opts=['include_blank']){$t=new Tag;$t->type=$type;$t->basetype=rtrim($type,'*');$t->name=$name;$t->options=$opts;$t->raw_values=$vals;$t->values=$vals;$t->labels=$vals;return $t;}
