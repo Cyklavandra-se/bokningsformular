@@ -7,6 +7,14 @@ Ett gemensamt bokningsformulär (Contact Form 7) för både cykel- och vandrings
 1. Gå till **Tillägg → Lägg till nytt → Ladda upp tillägg**, välj `bokningsformular.zip` och aktivera tillägget.
 2. Det dyker upp en ny meny, **Bokningsval**. Där finns alla resor som har en kortkod med `tripcode`, en rad per reskod. Den svenska och den norska versionen av en resa delar samma rad.
 
+## Sidan Bokningsval
+
+Överst finns sökrutan och filtret **Typ**. Som standard visas bara cykelresorna. Välj **Vandring** eller **Alla** för att se fler. Kryssa i **Kollad** när en resa är genomgången.
+
+## Eurobike
+
+Reskoder som börjar med landskod och bindestreck, t.ex. `DE-` och `IT-`, är Eurobike-resor. De har alltid **Sportig cykel** ikryssad. Det gäller nya resor och vid import, och när version 1.2.0 installeras kryssas rutan i på alla Eurobike-resor som redan är sparade. Därefter går rutan att kryssa ur för enskilda resor.
+
 ## Typ: cykel eller vandring
 
 Tillägget gissar typen utifrån adressen: adresser med `/vandra/` blir vandring och övriga blir cykel. Gissningen går att ändra i kolumnen **Typ**.
@@ -18,7 +26,8 @@ På vandringsresor försvinner raden med längd, cykel och hjälm för varje res
 1. Ladda ner arket från Claude som CSV.
 2. Gå till **Bokningsval → Importera CSV**.
 3. Resorna matchas mot sajten via kolumnen *Webbsida*. Om det inte går används resans namn.
-4. Rader där hjälmvalet är ifyllt markeras som **Klar**.
+4. Rader där hjälmvalet är ifyllt markeras som **Kollad**, om filen inte har en egen kolumn **Kollad**.
+5. Eurobike-resor får alltid **Sportig cykel**, även om filen säger något annat.
 
 ## Formuläret
 

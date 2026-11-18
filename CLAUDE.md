@@ -20,7 +20,7 @@ WordPress-tillägg för cyklavandra.se. Det låter **ett** bokningsformulär i C
   - `typ`: `cykel` eller `vandring`. Är den tom gissas typen utifrån adressen, där `/vandra/` ger vandring. Gissningen görs på den svenska originalsidan via `wpml_object_id`.
   - `hjalm`: `hyra`, `ingar` eller `nej`.
   - kryssrutor: `vanlig`, `el`, `sportig`, `egen`, `stold`, `assistans`.
-  - `kommentar` och `klar`.
+  - `kommentar` och `klar` (visas som **Kollad** i admin och CSV; importen läser kolumnen Kollad eller Klar).
 - **Reskoden för det aktuella formuläret** hämtas vid visning från `WPCF7_ContactForm::get_current()->shortcode_attr('tripcode')`. Vid inskick hämtas den från `$_POST['tripcode']` (det dolda fältet). Sidans ID, som används för att gissa typen, kommer från `$_POST['_wpcf7_container_post']` eller `get_the_ID()`.
 - **Filtret `wpcf7_form_tag`** körs både vid visning och vid validering:
   - `cykel-N` och `hjalm-N`: tar bort alternativ **efter position** (se nedan) och bygger om `WPCF7_Pipes`. När bara ett alternativ återstår tas `include_blank` bort, så att det alternativet blir förvalt.
@@ -29,6 +29,16 @@ WordPress-tillägg för cyklavandra.se. Det låter **ett** bokningsformulär i C
 - **Filtret `wpcf7_form_elements`** tar bort `<div class="… cvb-cykel …">` vid vandring, och `<div class="cvb-stold">` och `<div class="cvb-assistans">` när försäkringen saknas. Regexen förutsätter att de diven **inte har nästlade div**.
 - **Adminsidan** ligger i menyn *Bokningsval* (slug `bokningsformular`). Den hittar resor genom att söka igenom `post_content` efter `tripcode=`, och avkodar även Avadas base64-kodade `[fusion_code]`-block. Där finns också CSV-import (matchar resor via Reskod, Webbsida med `url_to_postid` eller titel) och CSV-export.
 - **Standardläge** för en cykelresa utan inställning: vanlig cykel, elcykel och egen cykel, hyrhjälm, inga försäkringar.
+
+- **Eurobike:** reskoder som börjar med landskod och bindestreck (`/^[A-Z]{2}-/`, t.ex. `DE-`, `IT-`) är Eurobike och ska ha `sportig` = 1. Det sker i `defaults( $code )`, vid CSV-import och i engångsändringen `migrate()` (optionen `cvb_schema` = 2). Efter det går rutan att kryssa ur manuellt.
+- **Adminsidan** filtrerar på typ (standard: Cykel) bredvid sökrutan. Filtret använder typen som var sparad när sidan laddades (`data-typ`).
+
+## Språk och mail (måste alltid fungera)
+
+- Allt ska fungera med **WPML**: inställningarna gäller per reskod, så den svenska och den norska sidan styrs av samma rad. Alternativen styrs efter position, så översatta formulär fungerar.
+- **Mailet till oss ska alltid vara på svenska.** Det löser Code Snippet *Bokningsformulär - alltid på svenska till oss*, inte tillägget. Tillägget får inte ändra fältnamn, värden eller pipes (`Etikett|värde`) på ett sätt som bryter den snippeten. `reduce_options()` behåller råvärdena och bygger om `WPCF7_Pipes` av dem.
+- **Bekräftelsemailet till kunden ska vara på samma språk som formuläret skickades från.**
+- Tillägget rör inte mailen alls. Ändringar som påverkar inskick eller fältvärden måste provas med både svenskt och norskt formulär.
 
 ## Uppdateringar (`updater.php`)
 
@@ -61,11 +71,11 @@ Om ordningen ändras måste `BIKE_INDEX` och `HELMET_INDEX` uppdateras.
 
 ## Tester
 
-`php tests/test-logik.php` och `php tests/test-import.php` testar logiken med stubbar för WordPress och CF7. Det finns ingen riktig WordPress-miljö i repot.
+`php tests/test-logik.php`, `php tests/test-import.php` och `php tests/test-eurobike.php` testar logiken med stubbar för WordPress och CF7. Det finns ingen riktig WordPress-miljö i repot.
 
 ## Status (2026-11-18)
 
-- v1.0.0 är skriven men **inte testad på sajten** än. v1.1.x lägger till uppdateringar via GitHub. Pär har installerat 1.1.0 manuellt; 1.1.1 lägger till länkarna Inställningar, Sök efter uppdatering och Visa detaljer i listan över tillägg.
+- v1.0.0 är skriven men **inte testad på sajten** än. v1.1.x lägger till uppdateringar via GitHub. Pär har installerat 1.1.0 manuellt; 1.1.1 lägger till länkarna Inställningar, Sök efter uppdatering och Visa detaljer i listan över tillägg. 1.2.0: typfilter (standard Cykel), Klar heter Kollad, Eurobike får sportig cykel.
 - Nästa steg för Pär:
   1. Installera tillägget och läs in CSV-filen från arket över cykelresorna.
   2. Klistra in mallen i ett cykelformulär och ett vandringsformulär och provboka.
