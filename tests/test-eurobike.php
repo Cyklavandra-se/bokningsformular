@@ -172,6 +172,45 @@ $r = CV_Bokningsval::filter_form_tag( mk( 'select*', 'hjalm-1', array( 'Hyr hjä
 ok( array( 'Tar med egen' ) === $r->values, 'vid inskick med reskod begränsas valen som förut: ' . implode( '/', $r->values ) );
 $_POST = array();
 
+echo "\n--- Ingen hjälmhyra: hjälmrutan döljs ---\n";
+// Formulärets HTML från cyklavandra.se (Algarve, 2026-11-18), med hjälmlistorna som tillägget visar dem vid Erbjuds inte.
+$form = file_get_contents( __DIR__ . '/fixtures-form-sv.html' );
+$out  = CV_Bokningsval::hide_helmet_fields( $form );
+ok( 0 === preg_match( '/<select[^>]*name="hjalm-/', $out ), 'inga hjälmlistor kvar' );
+ok( 8 === substr_count( $out, '<input type="hidden" name="hjalm-' ), '8 dolda hjälmfält' );
+ok( false !== strpos( $out, '<input type="hidden" name="hjalm-1" value="Tar med egen" class="cvb-hjalm-dold" />' ), 'dolt fält med Tar med egen' );
+ok( 0 === preg_match( '#<label>\s*Hjälm#', $out ), 'etiketten Hjälm är borta' );
+ok( substr_count( $out, 'name="cykel-' ) === substr_count( $form, 'name="cykel-' ) && substr_count( $out, 'name="langd-' ) === substr_count( $form, 'name="langd-' ), 'längd och cykel finns kvar' );
+ok( substr_count( $out, '<label' ) === substr_count( $form, '<label' ) - 8, 'exakt 8 etiketter borttagna' );
+
+$GLOBALS['opts'] = array( 'cvb_settings' => array(
+	'DE-NEJ'  => array( 'typ' => 'cykel', 'hjalm' => 'nej' ),
+	'HYR-1'   => array( 'typ' => 'cykel', 'hjalm' => 'hyra' ),
+	'VAND-1'  => array( 'typ' => 'vandring', 'hjalm' => 'nej' ),
+) );
+$GLOBALS['cur'] = 0;
+WPCF7_ContactForm::$attr = 'DE-NEJ';
+ok( false === strpos( CV_Bokningsval::filter_form_html( $form ), '<select class="wpcf7-form-control wpcf7-select wpcf7-validates-as-required" aria-required="true" aria-invalid="false" name="hjalm-1"' ), 'filter_form_html döljer hjälmen för Erbjuds inte' );
+WPCF7_ContactForm::$attr = 'HYR-1';
+ok( false !== strpos( CV_Bokningsval::filter_form_html( $form ), 'name="hjalm-1"><option' ), 'hyrhjälm: hjälmlistan finns kvar' );
+WPCF7_ContactForm::$attr = '';
+
+echo "\n--- Villkorliga stycken i mailen ---\n";
+$mail = "Övrig info:\n[ovrig-info]\n\n[cvb-hjalm-nej]Observera att leverantören inte har hjälmar att hyra och att ni får ta med dessa själva.\n\n[/cvb-hjalm-nej]Bokningen är bindande.";
+$nej  = CV_Bokningsval::apply_mail_blocks( $mail, CV_Bokningsval::settings_for( 'DE-NEJ', 0 ) );
+ok( false !== strpos( $nej, "[ovrig-info]\n\nObservera att leverantören inte har hjälmar att hyra och att ni får ta med dessa själva.\n\nBokningen" ), 'Erbjuds inte: texten är med' );
+$hyr = CV_Bokningsval::apply_mail_blocks( $mail, CV_Bokningsval::settings_for( 'HYR-1', 0 ) );
+ok( "Övrig info:\n[ovrig-info]\n\nBokningen är bindande." === $hyr, 'hyrhjälm: texten och tomraden är borta' );
+$van = CV_Bokningsval::apply_mail_blocks( "A[cvb-hjalm-nej]X[/cvb-hjalm-nej][cvb-vandring]V[/cvb-vandring][cvb-cykel]C[/cvb-cykel]", CV_Bokningsval::settings_for( 'VAND-1', 0 ) );
+ok( 'AV' === $van, 'vandring: inget om hjälm, vandringsstycket med: ' . $van );
+ok( 'utan block' === CV_Bokningsval::apply_mail_blocks( 'utan block', CV_Bokningsval::settings_for( 'HYR-1', 0 ) ), 'mail utan block orört' );
+$_POST = array( '_wpcf7' => 1, 'tripcode' => 'DE-NEJ' );
+$c = CV_Bokningsval::filter_mail_components( array( 'subject' => 'Bokning', 'body' => $mail ) );
+ok( false !== strpos( $c['body'], 'Observera' ) && false === strpos( $c['body'], '[cvb-' ), 'filter_mail_components vid inskick' );
+$_POST = array();
+$c = CV_Bokningsval::filter_mail_components( array( 'body' => $mail ) );
+ok( $mail === $c['body'], 'utan reskod lämnas mailet orört' );
+
 echo "\n--- Felaktiga reskoder ---\n";
 ok( '' !== CV_Bokningsval::code_problem( '<span data-sheets-root=' ), 'HTML från Google Sheets upptäcks' );
 ok( '' !== CV_Bokningsval::code_problem( 'Mon May 11 2026 00:00:00 GMT+0200 (Central European Summer Time)' ), 'datum upptäcks' );

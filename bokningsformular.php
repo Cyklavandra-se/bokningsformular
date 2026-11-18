@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Cykla & Vandra – Bokningsformulär
  * Description: Ett bokningsformulär (Contact Form 7) för både cykel- och vandringsresor. Styr vilka cykeltyper, hjälmval och försäkringar som visas för varje resa, utifrån reskoden (tripcode) i kortkoden.
- * Version: 1.7.2
+ * Version: 1.8.0
  * Author: Cykla & Vandra
  * Requires at least: 6.0
  * Requires PHP: 7.4
@@ -172,6 +172,7 @@ final class CV_Bokningsval {
 		add_filter( 'shortcode_atts_wpcf7', array( __CLASS__, 'allow_tripcode_attr' ), 10, 3 );
 		add_filter( 'wpcf7_form_tag', array( __CLASS__, 'filter_form_tag' ), 20, 2 );
 		add_filter( 'wpcf7_form_elements', array( __CLASS__, 'filter_form_html' ), 20 );
+		add_filter( 'wpcf7_mail_components', array( __CLASS__, 'filter_mail_components' ), 20 );
 
 		if ( is_admin() ) {
 			add_action( 'admin_init', array( __CLASS__, 'migrate' ) );
@@ -444,6 +445,69 @@ final class CV_Bokningsval {
 		return $tag;
 	}
 
+	/**
+	 * Resor utan hjälmhyra: hela hjälmrutan (etiketten med listan) tas bort, och
+	 * listans enda värde ("Tar med egen" på formulärets språk) skickas i ett dolt
+	 * fält. Mailen får då samma värde som förut (Pär, 2026-11-18).
+	 */
+	public static function hide_helmet_fields( $html ) {
+		return preg_replace_callback(
+			'#<label[^>]*>(?:(?!</label>).)*?<select[^>]*\bname="(hjalm-\d+)"[^>]*>(.*?)</select>(?:(?!</label>).)*?</label>#s',
+			function ( $m ) {
+				$value = preg_match( '#<option value="([^"]+)"#', $m[2], $o ) ? $o[1] : '';
+				return '<input type="hidden" name="' . $m[1] . '" value="' . $value . '" class="cvb-hjalm-dold" />';
+			},
+			$html
+		);
+	}
+
+	/**
+	 * Villkorliga stycken i mailen: [cvb-hjalm-nej]…[/cvb-hjalm-nej] tas med bara
+	 * när villkoret gäller för resan. Texten står i mailmallen i Contact Form 7, så
+	 * den kan översättas i WPML.
+	 */
+	public static function mail_blocks( $s ) {
+		$bike = 'vandring' !== $s['typ'];
+		return array(
+			'cvb-hjalm-nej'   => $bike && 'nej' === $s['hjalm'],
+			'cvb-hjalm-hyra'  => $bike && 'hyra' === $s['hjalm'],
+			'cvb-hjalm-ingar' => $bike && 'ingar' === $s['hjalm'],
+			'cvb-cykel'       => $bike,
+			'cvb-vandring'    => ! $bike,
+		);
+	}
+
+	public static function apply_mail_blocks( $text, $s ) {
+		$text = (string) $text;
+		if ( false === strpos( $text, '[cvb-' ) ) {
+			return $text;
+		}
+		foreach ( self::mail_blocks( $s ) as $name => $show ) {
+			$text = preg_replace_callback(
+				'#\[' . preg_quote( $name, '#' ) . '\](.*?)\[/' . preg_quote( $name, '#' ) . '\]#s',
+				function ( $m ) use ( $show ) {
+					return $show ? $m[1] : '';
+				},
+				$text
+			);
+		}
+		// Ett borttaget stycke på egen rad ska inte lämna dubbla tomrader efter sig.
+		return preg_replace( "/\n{3,}/", "\n\n", $text );
+	}
+
+	public static function filter_mail_components( $components ) {
+		if ( '' === self::current_tripcode() || ! is_array( $components ) ) {
+			return $components;
+		}
+		$s = self::current_settings();
+		foreach ( array( 'subject', 'body' ) as $key ) {
+			if ( isset( $components[ $key ] ) ) {
+				$components[ $key ] = self::apply_mail_blocks( $components[ $key ], $s );
+			}
+		}
+		return $components;
+	}
+
 	public static function filter_form_html( $html ) {
 		if ( '' === self::current_tripcode() ) {
 			return $html;
@@ -451,6 +515,9 @@ final class CV_Bokningsval {
 		$s = self::current_settings();
 		if ( 'vandring' === $s['typ'] ) {
 			$html = preg_replace( '#<div class="[^"]*\bcvb-cykel\b[^"]*">.*?</div>#s', '', $html );
+		}
+		if ( 'vandring' !== $s['typ'] && 'nej' === $s['hjalm'] ) {
+			$html = self::hide_helmet_fields( $html );
 		}
 		if ( empty( $s['stold'] ) ) {
 			$html = preg_replace( '#<div class="cvb-stold">.*?</div>#s', '', $html );
