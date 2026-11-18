@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Cykla & Vandra – Bokningsformulär
  * Description: Ett bokningsformulär (Contact Form 7) för både cykel- och vandringsresor. Styr vilka cykeltyper, hjälmval och försäkringar som visas för varje resa, utifrån reskoden (tripcode) i kortkoden.
- * Version: 1.11.0
+ * Version: 1.12.0
  * Author: Cykla & Vandra
  * Requires at least: 6.0
  * Requires PHP: 7.4
@@ -911,8 +911,6 @@ final class CV_Bokningsval {
 		$pages    = 0;
 		$tours    = 0;
 		$failed   = array();
-		$settings = self::all_settings();
-		$marked   = 0;
 		foreach ( self::find_tours() as $code => $tour ) {
 			if ( ! $all && ! in_array( $code, $wanted, true ) ) {
 				continue;
@@ -940,18 +938,7 @@ final class CV_Bokningsval {
 			}
 			if ( $changed ) {
 				$tours++;
-				// Byt på en enskild resa markerar den som Klar (Pär, 2026-11-18).
-				// Byt alla gör det inte, eftersom Klar betyder att resan är genomgången.
-				if ( ! $all ) {
-					$row             = self::settings_for( $code, $tour['id'] );
-					$row['klar']     = 1;
-					$settings[ $code ] = self::sanitize_row( $row );
-					$marked++;
-				}
 			}
-		}
-		if ( $marked ) {
-			update_option( self::OPTION, $settings, false );
 		}
 
 		$msg = sprintf(
@@ -962,9 +949,6 @@ final class CV_Bokningsval {
 			$tours,
 			1 === $tours ? 'resa' : 'resor'
 		);
-		if ( $marked ) {
-			$msg .= ' Resan är markerad som Klar.';
-		}
 		if ( $failed ) {
 			$msg .= '<br>Kunde inte ändra: ' . esc_html( implode( ', ', array_unique( $failed ) ) ) . '.';
 		}
@@ -1217,17 +1201,10 @@ final class CV_Bokningsval {
 		$fields   = self::bool_fields();
 		$helmets  = self::helmet_choices();
 		$types    = self::type_choices();
-		$not_done = 0;
 		$rows     = array();
 		foreach ( $tours as $code => $t ) {
-			$s    = self::settings_for( $code, $t['id'] );
-			$done = ! empty( $all[ $code ]['klar'] );
-			// Vandringsresor behöver inga val, så de räknas inte som ej ifyllda.
-			$todo = ! $done && 'cykel' === $s['typ'];
-			if ( $todo ) {
-				$not_done++;
-			}
-			$rows[ $code ] = array( 's' => $s, 'done' => $done, 'todo' => $todo );
+			$s             = self::settings_for( $code, $t['id'] );
+			$rows[ $code ] = array( 's' => $s, 'done' => ! empty( $all[ $code ]['klar'] ) );
 		}
 		$suppliers = array_unique( array_filter( wp_list_pluck( wp_list_pluck( $rows, 's' ), 'leverantor' ) ) );
 		$forms     = self::booking_forms();
@@ -1249,16 +1226,15 @@ final class CV_Bokningsval {
 				<p>
 				Varje rad är en reskod som finns i en kortkod på sajten. Nya resor dyker upp här automatiskt.
 				Typen gissas utifrån adressen (<code>/vandra/</code> = vandring). På vandringsresor visas inte längd, cykel och hjälm.
-				Cykelresor som inte är markerade som <strong>Klar</strong> visas i gult och använder standardläget
-				(vanlig cykel + elcykel, hyrhjälm, egen cykel tillåten, inga försäkringar) tills ni sparar dem.
+				Resor vars sida använder ett annat formulär än bokningsformuläret, eller har en felaktig reskod, visas i gult.
+				Resor som inte är sparade använder standardläget (vanlig cykel + elcykel, hyrhjälm, egen cykel tillåten, inga försäkringar).
 				Resor från Eurobike, Radweg-Reisen och Velociped (reskoder som börjar med landskod och bindestreck, t.ex. <code>DE-</code>)
 				har sportig cykel och ingen hjälmhyra. På S-Capes resor i Frankrike (<code>FRSB…</code>) ingår hjälmen.
 				Leverantören hämtas från arket Booking Codes (inbyggd lista) om den inte är ifylld.
 				</p>
 			</details>
 			<p>
-				<strong><?php echo esc_html( count( $tours ) ); ?></strong> resor,
-				<strong id="cvb-not-done"><?php echo esc_html( $not_done ); ?></strong> cykelresor ej klara.
+				<strong><?php echo esc_html( count( $tours ) ); ?></strong> resor.
 				<?php
 				$other_form = $official ? count( array_filter( $tours, function ( $t ) use ( $official ) { return (bool) array_diff( $t['forms'], $official['ids'] ); } ) ) : 0;
 				if ( $other_form ) :
@@ -1321,7 +1297,7 @@ final class CV_Bokningsval {
 					</select>
 				</label>
 				<input type="search" id="cvb-search" placeholder="Sök resa, reskod eller leverantör…" style="min-width:260px">
-				<label><input type="checkbox" id="cvb-only-todo"> Visa bara ej klara</label>
+				<label><input type="checkbox" id="cvb-only-todo"> Visa bara gula (fel formulär eller reskod)</label>
 				<span id="cvb-shown" class="cvb-shown"></span>
 			</p>
 
@@ -1340,12 +1316,11 @@ final class CV_Bokningsval {
 							<?php endforeach; ?>
 							<?php if ( self::SHOW_COMMENT ) : ?><th>Kommentar</th><?php endif; ?>
 							<th>Hjälm</th>
-							<th class="cvb-c">Klar</th>
 							<?php if ( $official ) : ?><th class="cvb-c">Kortkod</th><?php endif; ?>
 						</tr>
 					</thead>
 					<?php
-					$columns = 5 + count( $fields ) + ( self::SHOW_COMMENT ? 1 : 0 ) + ( $official ? 1 : 0 );
+					$columns = 4 + count( $fields ) + ( self::SHOW_COMMENT ? 1 : 0 ) + ( $official ? 1 : 0 );
 					$groups  = array(
 						'published' => array_filter( $tours, function ( $t ) { return ! empty( $t['published'] ); } ),
 						'drafts'    => array_filter( $tours, function ( $t ) { return empty( $t['published'] ); } ),
@@ -1367,8 +1342,8 @@ final class CV_Bokningsval {
 						$n    = 'cvb[' . esc_attr( $code ) . ']';
 						// Rätt formulär: sidan har bara det officiella formuläret och reskoden är korrekt.
 						$right_form = $official && $tour['forms'] && ! array_diff( $tour['forms'], $official['ids'] ) && ! self::code_problem( $code );
-						$cls        = ( $rows[ $code ]['todo'] ? 'cvb-todo' : 'cvb-done' )
-							. ( $done && $right_form ? ' cvb-ok' : '' )
+						// Gul rad: sidan använder ett annat formulär eller har en felaktig reskod (Pär, 2026-11-18).
+						$cls        = ( $official && ! $right_form ? 'cvb-todo' : 'cvb-done' )
 							. ( 'vandring' === $s['typ'] ? ' cvb-hike' : '' );
 						?>
 						<tr class="<?php echo esc_attr( $cls ); ?>" data-right-form="<?php echo $right_form ? '1' : '0'; ?>" data-typ="<?php echo esc_attr( $s['typ'] ); ?>" data-search="<?php echo esc_attr( strtolower( $tour['title'] . ' ' . $code . ' ' . $s['leverantor'] ) ); ?>">
@@ -1388,6 +1363,7 @@ final class CV_Bokningsval {
 							<td>
 								<a href="<?php echo esc_url( get_edit_post_link( $tour['id'] ) ); ?>" title="Redigera sidan"><?php echo esc_html( $tour['title'] ); ?></a>
 								<a href="<?php echo esc_url( get_permalink( $tour['id'] ) ); ?>" class="cvb-view" target="_blank" rel="noopener" title="Visa resans sida" aria-label="Visa resans sida (öppnas i ny flik)">&#8599;</a>
+								<span class="cvb-save-status" aria-live="polite"></span>
 								<?php if ( 'publish' !== $tour['status'] ) : ?>
 									<em class="cvb-status">(<?php echo esc_html( self::status_label( $tour['status'] ) ); ?>)</em>
 								<?php endif; ?>
@@ -1410,7 +1386,8 @@ final class CV_Bokningsval {
 								<?php if ( $tour['langs'] ) : ?>
 									<span class="cvb-langs"><?php echo esc_html( strtoupper( implode( ' · ', $tour['langs'] ) ) ); ?></span>
 								<?php endif; ?>
-								<span class="cvb-badge cvb-todo-badge"<?php echo $rows[ $code ]['todo'] ? '' : ' hidden'; ?>>Ej ifylld</span>
+								<?php // Klar visas inte längre men behålls i inställningarna (och i CSV). ?>
+								<?php if ( $done ) : ?><input type="hidden" name="<?php echo $n; ?>[klar]" value="1"><?php endif; ?>
 								<input type="hidden" name="<?php echo $n; ?>[present]" value="1">
 								<?php if ( ! self::SHOW_COMMENT ) : ?>
 									<input type="hidden" name="<?php echo $n; ?>[kommentar]" value="<?php echo esc_attr( $s['kommentar'] ); ?>">
@@ -1429,7 +1406,6 @@ final class CV_Bokningsval {
 									<?php endforeach; ?>
 								</select>
 							</td>
-							<td class="cvb-c cvb-klar"><input type="checkbox" name="<?php echo $n; ?>[klar]" value="1" <?php checked( $done ); ?> aria-label="Klar"><span class="cvb-save-status" aria-live="polite"></span></td>
 							<?php if ( $official ) : ?>
 								<td class="cvb-c">
 									<?php if ( self::code_problem( $code ) ) : ?>
@@ -1449,7 +1425,7 @@ final class CV_Bokningsval {
 						<option value="<?php echo esc_attr( $supplier ); ?>">
 					<?php endforeach; ?>
 				</datalist>
-				<p class="cvb-autosave-note">Ändringar sparas direkt när du klickar i tabellen. Knappen behövs bara om något inte gick att spara.</p>
+				<p class="cvb-autosave-note">Ändringar sparas direkt när du klickar i tabellen (✓ vid resans namn). Knappen behövs bara om något inte gick att spara.</p>
 				<?php submit_button( 'Spara alla' ); ?>
 			</form>
 
@@ -1479,8 +1455,6 @@ final class CV_Bokningsval {
 			.cvb-table th, .cvb-table td { vertical-align: middle; }
 			.cvb-table .cvb-c { text-align: center; }
 			.cvb-table tr.cvb-todo td { background: #fff4ce; }
-			.cvb-table tr.cvb-ok td { background: #e3f5e6; }
-			.cvb-table tr.cvb-ok td:first-child { box-shadow: inset 4px 0 0 #00a32a; }
 			.cvb-badge { display:inline-block; margin-left:6px; padding:1px 6px; border-radius:3px; background:#dba617; color:#fff; font-size:11px; }
 			.cvb-table tr.cvb-hike td.cvb-bike { opacity: .3; }
 			.cvb-langs { margin-left:6px; color:#787c82; font-size:11px; }
@@ -1500,9 +1474,9 @@ final class CV_Bokningsval {
 			.cvb-swapbox p { margin:8px 0; }
 			.cvb-hint { margin-left:8px; color:#646970; }
 			.cvb-swap-one { margin-left:4px; font-size:12px; }
-			.cvb-klar { white-space:nowrap; }
 			.cvb-badge[hidden] { display:none; }
 			.cvb-save-status { display:inline-block; width:1em; margin-left:4px; font-weight:700; }
+			.cvb-save-status:empty { display:none; }
 			.cvb-save-saving { color:#646970; }
 			.cvb-save-ok { color:#00a32a; }
 			.cvb-save-err { color:#d63638; cursor:help; }
@@ -1581,23 +1555,6 @@ final class CV_Bokningsval {
 				} );
 			} );
 
-			// Klar: grön rad när resan är klar och sidan har rätt formulär, gul när en cykelresa inte är klar.
-			function paintRow( tr ) {
-				var done = tr.querySelector( 'input[name$="[klar]"]' ).checked;
-				var bike = tr.querySelector( '.cvb-typ-input' ).value !== 'vandring';
-				tr.classList.toggle( 'cvb-ok', done && tr.dataset.rightForm === '1' );
-				tr.classList.toggle( 'cvb-todo', ! done && bike );
-				tr.classList.toggle( 'cvb-done', done || ! bike );
-				var badge = tr.querySelector( '.cvb-todo-badge' );
-				if ( badge ) {
-					badge.hidden = done || ! bike;
-				}
-				var counter = document.getElementById( 'cvb-not-done' );
-				if ( counter ) {
-					counter.textContent = document.querySelectorAll( '.cvb-table tbody tr.cvb-todo' ).length;
-				}
-			}
-
 			// Spara en rad direkt (AJAX). Anropen körs ett i taget, så att två snabba
 			// ändringar på olika rader inte skriver över varandra.
 			var ajaxUrl = <?php echo wp_json_encode( admin_url( 'admin-ajax.php' ) ); ?>;
@@ -1650,9 +1607,6 @@ final class CV_Bokningsval {
 				if ( ! tr || ! e.target.name || e.target.name.indexOf( 'cvb[' ) !== 0 ) {
 					return;
 				}
-				if ( /\[klar\]$/.test( e.target.name ) ) {
-					paintRow( tr );
-				}
 				saveRow( tr );
 			} );
 			window.addEventListener( 'beforeunload', function ( e ) {
@@ -1697,7 +1651,6 @@ final class CV_Bokningsval {
 					btn.className = 'cvb-typ-btn cvb-typ-' + value;
 					btn.title = labels[ value ] + ' – klicka för att byta';
 					cell.closest( 'tr' ).classList.toggle( 'cvb-hike', value === 'vandring' );
-					paintRow( cell.closest( 'tr' ) );
 					saveRow( cell.closest( 'tr' ) );
 					closeMenus();
 					btn.focus();

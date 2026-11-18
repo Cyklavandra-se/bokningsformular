@@ -194,15 +194,13 @@ $_POST              = array( 'codes' => array( 'DE-MORWT-06' ) );
 try { CV_Bokningsval::handle_swap_forms(); } catch ( Redirected $e ) {}
 ok( array( 12 ) === array_keys( $GLOBALS['updated'] ), 'Byt på en resa ändrar bara den resans sida' );
 ok( false !== strpos( $GLOBALS['updated'][12], 'id="ca124e5"' ) && false !== strpos( $GLOBALS['updated'][12], 'tripcode="DE-MORWT-06"' ), 'sidan har nya formuläret och samma reskod' );
-ok( 1 === ( $GLOBALS['opts']['cvb_settings']['DE-MORWT-06']['klar'] ?? 0 ), 'Byt på en resa markerar den som Klar' );
-ok( 'nej' === $GLOBALS['opts']['cvb_settings']['DE-MORWT-06']['hjalm'] && 'Velociped' === $GLOBALS['opts']['cvb_settings']['DE-MORWT-06']['leverantor'], 'övriga inställningar för resan behålls' );
+ok( ! isset( $GLOBALS['opts']['cvb_settings']['DE-MORWT-06'] ), 'Byt ändrar inte resans inställningar (Klar används inte längre)' );
 // Alla.
-$GLOBALS['opts']['cvb_settings']['Trip 07-06']['klar'] = 0;
 $GLOBALS['updated'] = array();
 $_POST              = array( 'all' => '1' );
 try { CV_Bokningsval::handle_swap_forms(); } catch ( Redirected $e ) {}
 ok( array( 10, 11 ) === array_keys( $GLOBALS['updated'] ), 'Byt alla: båda språken av Holland, inte den trasiga eller den som redan är klar' );
-ok( empty( $GLOBALS['opts']['cvb_settings']['Trip 07-06']['klar'] ), 'Byt alla markerar inte Klar' );
+
 $msg = $GLOBALS['transients']['cvb_notice_1']['message'] ?? '';
 ok( false !== strpos( $msg, 'på 2 sidor (1 resa)' ), 'meddelandet räknar sidor och resor: ' . strip_tags( $msg ) );
 $_POST = array();
