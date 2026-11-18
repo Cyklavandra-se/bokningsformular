@@ -127,51 +127,120 @@ final class CV_Bokningsval_Updater {
 			return empty( $cached['version'] ) ? null : $cached;
 		}
 
-		$response = wp_remote_get(
+		// GitHubs API ger även ändringsloggen, men tillåter bara 60 anonyma anrop i timmen
+		// per IP-adress, vilket ett delat webbhotell kan slå i. Därför finns två reserver
+		// som inte går via API:et.
+		$errors  = array();
+		$release = self::from_api( $errors );
+		if ( ! $release ) {
+			$release = self::from_latest_page( $errors );
+		}
+		if ( ! $release ) {
+			$release = self::from_raw_file( $errors );
+		}
+		if ( ! $release ) {
+			$release = array( 'error' => 'kunde inte hämta versionen från GitHub. ' . implode( ' ', $errors ) );
+		}
+
+		// Misslyckade anrop sparas en kortare stund så att GitHub inte frågas vid varje sidladdning.
+		set_transient( self::TRANSIENT, $release, empty( $release['version'] ) ? 3600 : self::CACHE_TTL );
+		return empty( $release['version'] ) ? null : $release;
+	}
+
+	private static function get( $url, $args = array() ) {
+		return wp_remote_get(
+			$url,
+			array_merge(
+				array(
+					'timeout' => 10,
+					'headers' => array( 'User-Agent' => 'WordPress/' . get_bloginfo( 'version' ) . '; bokningsformular' ),
+				),
+				$args
+			)
+		);
+	}
+
+	/** Beskriver ett misslyckat anrop, t.ex. "felkod 403" eller felet från WordPress. */
+	private static function describe( $response ) {
+		if ( is_wp_error( $response ) ) {
+			return $response->get_error_message();
+		}
+		$code = (int) wp_remote_retrieve_response_code( $response );
+		if ( 403 === $code || 429 === $code ) {
+			return 'felkod ' . $code . ' (troligen för många anrop från serverns IP-adress)';
+		}
+		return 'felkod ' . $code;
+	}
+
+	/** Adressen till zip-filen för en tagg, t.ex. v1.3.1. */
+	private static function package_url( $tag ) {
+		return 'https://github.com/' . self::REPO . '/releases/download/' . rawurlencode( $tag ) . '/' . self::ASSET;
+	}
+
+	private static function make_release( $tag, $package = '', $url = '', $changelog = '', $published = '' ) {
+		return array(
+			'version'   => ltrim( $tag, 'vV' ),
+			'package'   => $package ? $package : self::package_url( $tag ),
+			'url'       => $url ? $url : 'https://github.com/' . self::REPO . '/releases/tag/' . rawurlencode( $tag ),
+			'changelog' => $changelog,
+			'published' => $published,
+		);
+	}
+
+	/** 1. GitHubs API: senaste releasen med ändringslogg. */
+	private static function from_api( &$errors ) {
+		$response = self::get(
 			'https://api.github.com/repos/' . self::REPO . '/releases/latest',
 			array(
-				'timeout' => 10,
 				'headers' => array(
 					'Accept'     => 'application/vnd.github+json',
 					'User-Agent' => 'WordPress/' . get_bloginfo( 'version' ) . '; bokningsformular',
 				),
 			)
 		);
-
-		$release = array();
-		$code    = is_wp_error( $response ) ? 0 : (int) wp_remote_retrieve_response_code( $response );
-		if ( is_wp_error( $response ) ) {
-			$release['error'] = 'GitHub gick inte att nå (' . $response->get_error_message() . ').';
-		} elseif ( 404 === $code ) {
-			$release['error'] = 'det finns ingen release på GitHub än.';
-		} elseif ( 200 !== $code ) {
-			$release['error'] = 'GitHub svarade med felkod ' . $code . '.';
+		$code = is_wp_error( $response ) ? 0 : (int) wp_remote_retrieve_response_code( $response );
+		if ( 200 !== $code ) {
+			$errors[] = 'API: ' . ( 404 === $code ? 'ingen release finns' : self::describe( $response ) ) . '.';
+			return null;
 		}
-		if ( 200 === $code ) {
-			$data = json_decode( wp_remote_retrieve_body( $response ), true );
-			if ( is_array( $data ) && ! empty( $data['tag_name'] ) && ! empty( $data['assets'] ) ) {
-				foreach ( $data['assets'] as $asset ) {
-					if ( isset( $asset['name'], $asset['browser_download_url'] ) && self::ASSET === $asset['name'] ) {
-						$release = array(
-							'version'   => ltrim( $data['tag_name'], 'vV' ),
-							'package'   => $asset['browser_download_url'],
-							'url'       => $data['html_url'],
-							'changelog' => isset( $data['body'] ) ? (string) $data['body'] : '',
-							'published' => isset( $data['published_at'] ) ? $data['published_at'] : '',
-						);
-						break;
-					}
+		$data = json_decode( wp_remote_retrieve_body( $response ), true );
+		if ( is_array( $data ) && ! empty( $data['tag_name'] ) && ! empty( $data['assets'] ) ) {
+			foreach ( $data['assets'] as $asset ) {
+				if ( isset( $asset['name'], $asset['browser_download_url'] ) && self::ASSET === $asset['name'] ) {
+					return self::make_release(
+						$data['tag_name'],
+						$asset['browser_download_url'],
+						isset( $data['html_url'] ) ? $data['html_url'] : '',
+						isset( $data['body'] ) ? (string) $data['body'] : '',
+						isset( $data['published_at'] ) ? $data['published_at'] : ''
+					);
 				}
 			}
 		}
+		$errors[] = 'API: senaste releasen saknar ' . self::ASSET . '.';
+		return null;
+	}
 
-		if ( 200 === $code && empty( $release['version'] ) ) {
-			$release['error'] = 'den senaste releasen på GitHub saknar filen ' . self::ASSET . '.';
+	/** 2. Sidan github.com/…/releases/latest skickar vidare till den senaste taggen. */
+	private static function from_latest_page( &$errors ) {
+		$response = self::get( 'https://github.com/' . self::REPO . '/releases/latest', array( 'redirection' => 0 ) );
+		$location = is_wp_error( $response ) ? '' : (string) wp_remote_retrieve_header( $response, 'location' );
+		if ( $location && preg_match( '#/releases/tag/([^/?\#]+)#', $location, $m ) ) {
+			return self::make_release( rawurldecode( $m[1] ) );
 		}
+		$errors[] = 'github.com: ' . self::describe( $response ) . '.';
+		return null;
+	}
 
-		// Misslyckade anrop sparas en kortare stund så att GitHub inte frågas vid varje sidladdning.
-		set_transient( self::TRANSIENT, $release, empty( $release['version'] ) ? 3600 : self::CACHE_TTL );
-		return empty( $release['version'] ) ? null : $release;
+	/** 3. Versionen i tilläggets huvudfil på main (releasen skapas av GitHub Actions för varje ny version). */
+	private static function from_raw_file( &$errors ) {
+		$response = self::get( 'https://raw.githubusercontent.com/' . self::REPO . '/main/bokningsformular.php' );
+		$code     = is_wp_error( $response ) ? 0 : (int) wp_remote_retrieve_response_code( $response );
+		if ( 200 === $code && preg_match( '/^[ \t\/*#@]*Version:\s*([0-9][0-9.]*)/mi', wp_remote_retrieve_body( $response ), $m ) ) {
+			return self::make_release( 'v' . $m[1] );
+		}
+		$errors[] = 'raw.githubusercontent.com: ' . self::describe( $response ) . '.';
+		return null;
 	}
 
 	/** Varför den senaste frågan till GitHub misslyckades, eller ''. */
