@@ -71,8 +71,9 @@ Om ordningen ändras måste `BIKE_INDEX` och `HELMET_INDEX` uppdateras.
 ## Affärsregler
 
 - Stöld- och assistansförsäkring finns bara som tillval på resorna i Holland och Belgien.
-- Sportig cykel finns på de flesta resor från Eurobike/Eurofun och Radweg-Reisen.
-- Eurobike hyr aldrig ut hjälm, vilket motsvarar `nej`. På vissa resor ingår hjälmen, och på andra hyrs den.
+- Sportig cykel finns på alla Eurofun-cykelresor (reskod som börjar med landskod och bindestreck).
+- Eurobike, Radweg-Reisen och Velociped hyr aldrig ut hjälm: alla deras resor har `nej` (Pär, 2026-11-18). Arket Booking Codes, fliken Leverantörer, har kolumnen "Ingen hjälmhyra".
+- S-Capes resor i Frankrike har hjälm som ingår (Pär, 2026-11-18).
 - Det finns resor där man bara kan välja elcykel.
 - Vandringsformulären har inga egna fält. Det är samma formulär, men utan längd, cykel och hjälm.
 
@@ -82,7 +83,7 @@ Om ordningen ändras måste `BIKE_INDEX` och `HELMET_INDEX` uppdateras.
 
 ## Status (2026-11-18)
 
-- v1.0.0 är skriven men **inte testad på sajten** än. v1.1.x lägger till uppdateringar via GitHub. Pär har installerat 1.1.0 manuellt; 1.1.1 lägger till länkarna Inställningar, Sök efter uppdatering och Visa detaljer i listan över tillägg. 1.2.0: typfilter (standard Cykel), Klar hette Kollad, Eurobike får sportig cykel. 1.3.0: Leverantör, ingen hjälmhyra för Eurobike/Radweg-Reisen/Velociped, hjälm ingår för S-Cape i Frankrike, länk till resans sida, Kollad heter Klar igen, Kommentar dold, import av Booking Codes, rättad läsning av reskoder med mellanslag.
+- v1.0.0 är skriven men **inte testad på sajten** än. v1.1.x lägger till uppdateringar via GitHub. Pär har installerat 1.1.0 manuellt; 1.1.1 lägger till länkarna Inställningar, Sök efter uppdatering och Visa detaljer i listan över tillägg. 1.2.0: typfilter (standard Cykel), Klar hette Kollad, Eurobike får sportig cykel. 1.3.0: Leverantör, ingen hjälmhyra för Eurobike/Radweg-Reisen/Velociped, hjälm ingår för S-Cape i Frankrike, länk till resans sida, Kollad heter Klar igen, Kommentar dold, import av Booking Codes, rättad läsning av reskoder med mellanslag. Pär installerade 1.3.0 manuellt ("Uppdatera nu" fungerade inte). 1.3.1: tydligare felmeddelande från "Sök efter uppdatering"; släpps för att prova uppdateringen i WordPress.
 - Nästa steg för Pär:
   1. Installera tillägget och läs in CSV-filen från arket över cykelresorna.
   2. Klistra in mallen i ett cykelformulär och ett vandringsformulär och provboka.

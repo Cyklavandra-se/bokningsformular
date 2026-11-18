@@ -94,7 +94,8 @@ final class CV_Bokningsval_Updater {
 		} elseif ( 'senaste' === $result ) {
 			echo '<div class="notice notice-success is-dismissible"><p>' . esc_html( $name . ': du har den senaste versionen.' ) . '</p></div>';
 		} elseif ( 'fel' === $result ) {
-			echo '<div class="notice notice-error is-dismissible"><p>' . esc_html( $name . ': kunde inte hämta någon release från GitHub. Försök igen senare.' ) . '</p></div>';
+			$why = self::last_error();
+			echo '<div class="notice notice-error is-dismissible"><p>' . esc_html( $name . ': ' . ( $why ? $why : 'kunde inte hämta någon release från GitHub.' ) ) . '</p></div>';
 		}
 	}
 
@@ -138,7 +139,15 @@ final class CV_Bokningsval_Updater {
 		);
 
 		$release = array();
-		if ( ! is_wp_error( $response ) && 200 === wp_remote_retrieve_response_code( $response ) ) {
+		$code    = is_wp_error( $response ) ? 0 : (int) wp_remote_retrieve_response_code( $response );
+		if ( is_wp_error( $response ) ) {
+			$release['error'] = 'GitHub gick inte att nå (' . $response->get_error_message() . ').';
+		} elseif ( 404 === $code ) {
+			$release['error'] = 'det finns ingen release på GitHub än.';
+		} elseif ( 200 !== $code ) {
+			$release['error'] = 'GitHub svarade med felkod ' . $code . '.';
+		}
+		if ( 200 === $code ) {
 			$data = json_decode( wp_remote_retrieve_body( $response ), true );
 			if ( is_array( $data ) && ! empty( $data['tag_name'] ) && ! empty( $data['assets'] ) ) {
 				foreach ( $data['assets'] as $asset ) {
@@ -156,9 +165,19 @@ final class CV_Bokningsval_Updater {
 			}
 		}
 
+		if ( 200 === $code && empty( $release['version'] ) ) {
+			$release['error'] = 'den senaste releasen på GitHub saknar filen ' . self::ASSET . '.';
+		}
+
 		// Misslyckade anrop sparas en kortare stund så att GitHub inte frågas vid varje sidladdning.
-		set_transient( self::TRANSIENT, $release, $release ? self::CACHE_TTL : 3600 );
-		return $release ? $release : null;
+		set_transient( self::TRANSIENT, $release, empty( $release['version'] ) ? 3600 : self::CACHE_TTL );
+		return empty( $release['version'] ) ? null : $release;
+	}
+
+	/** Varför den senaste frågan till GitHub misslyckades, eller ''. */
+	private static function last_error() {
+		$cached = get_transient( self::TRANSIENT );
+		return is_array( $cached ) && ! empty( $cached['error'] ) ? $cached['error'] : '';
 	}
 
 	public static function check_update( $update, $plugin_data, $plugin_file, $locales ) {
