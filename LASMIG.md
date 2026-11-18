@@ -11,9 +11,9 @@ Ett gemensamt bokningsformulär (Contact Form 7) för både cykel- och vandrings
 
 Överst finns sökrutan och filtret **Typ**. Som standard visas bara cykelresorna. Välj **Vandring** eller **Alla** för att se fler. Kryssa i **Kollad** när en resa är genomgången.
 
-## Eurobike
+## Eurofun-resor (Eurobike, Radweg-Reisen, Velociped)
 
-Reskoder som börjar med landskod och bindestreck, t.ex. `DE-` och `IT-`, är Eurobike-resor. De har alltid **Sportig cykel** ikryssad. Det gäller nya resor och vid import, och när version 1.2.0 installeras kryssas rutan i på alla Eurobike-resor som redan är sparade. Därefter går rutan att kryssa ur för enskilda resor.
+Reskoder som börjar med landskod och bindestreck, t.ex. `DE-` och `IT-`, tillhör Eurofun-gruppen. Det gäller cykelresorna från Eurobike, Radweg-Reisen och Velociped, och vandringsresorna från Eurohike. Cykelresorna har alltid **Sportig cykel** och **Hjälm: Erbjuds inte**. Det gäller nya resor och vid import. När version 1.2.0 respektive 1.3.0 installeras ändras även de resor som redan är sparade. Därefter går valen att ändra för enskilda resor.
 
 ## Typ: cykel eller vandring
 
@@ -27,7 +27,22 @@ På vandringsresor försvinner raden med längd, cykel och hjälm för varje res
 2. Gå till **Bokningsval → Importera CSV**.
 3. Resorna matchas mot sajten via kolumnen *Webbsida*. Om det inte går används resans namn.
 4. Rader där hjälmvalet är ifyllt markeras som **Kollad**, om filen inte har en egen kolumn **Kollad**.
-5. Eurobike-resor får alltid **Sportig cykel**, även om filen säger något annat.
+5. Bara kolumnerna som finns i filen ändras. Övriga inställningar för resan behålls.
+6. Resor från Eurofun-gruppen får alltid **Sportig cykel** och **Hjälm: Erbjuds inte**, även om filen säger något annat (se nedan).
+
+## Leverantör
+
+Varje resa har en kolumn **Leverantör**. Den fylls i från arket *Booking Codes*:
+
+1. Öppna fliken **BIKE** och välj **Arkiv → Ladda ned → Kommaavgränsade värden (.csv)**.
+2. Läs in filen under **Bokningsval → Importera CSV**. Resorna matchas via **Tripcode** och annars via **Vår hemsida**.
+3. Gör likadant med fliken **HIKE**.
+
+Bara leverantören ändras, eftersom arket inte har några kolumner för hjälm eller cyklar. Rader i arket som inte finns på sajten listas efter importen. Leverantören går också att skriva in direkt i tabellen, och sökrutan söker även på leverantör.
+
+Resor från **Eurobike, Radweg-Reisen och Velociped** får **Hjälm: Erbjuds inte**. Det gäller vid import och när leverantören redan är sparad, och när version 1.3.0 installeras. Därefter går hjälmvalet att ändra för enskilda resor.
+
+Kolumnen **Kommentar** är dold tills vidare. Kommentarer som redan finns sparas och följer med i CSV-exporten.
 
 ## Formuläret
 
