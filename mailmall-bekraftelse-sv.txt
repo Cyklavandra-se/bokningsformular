@@ -1,0 +1,37 @@
+Hej [mc4wp-FNAME]!
+
+Det här är en automatisk bekräftelse på att vi har tagit emot din bokning av [_post_title].
+Vi kontrollerar nu tillgängligheten och återkommer så snart som möjligt med en bekräftelse.
+
+Dina uppgifter:
+
+Namn: [mc4wp-FNAME] [mc4wp-LNAME]
+E-postadress: [your-email]
+Telefon: [telefon]
+Adress: [hemadress], [postnummer] [ort]
+Resa: [_post_url]
+Ankomstdatum: [datum]
+Antal resenärer: [antal]
+Rabattkod/Presentkort: [rabattkod]
+[cvb-stold]Cykelförsäkring: [cykelforsakring]
+[/cvb-stold][cvb-assistans]Assistansförsäkring: [assistansforsakring]
+[/cvb-assistans]
+Resenärer:
+[mc4wp-FNAME] [mc4wp-LNAME][cvb-cykel], [langd-1] cm, [cykel-1], hjälm: [hjalm-1][/cvb-cykel][resenar-2]
+[namn-2][cvb-cykel], [langd-2] cm, [cykel-2], hjälm: [hjalm-2][/cvb-cykel][fakturaadress-2] (separat faktura: [gatuadress-2], [postnummer-2] [ort-2], [epost-2])[/fakturaadress-2][/resenar-2][resenar-3]
+[namn-3][cvb-cykel], [langd-3] cm, [cykel-3], hjälm: [hjalm-3][/cvb-cykel][fakturaadress-3] (separat faktura: [gatuadress-3], [postnummer-3] [ort-3], [epost-3])[/fakturaadress-3][/resenar-3][resenar-4]
+[namn-4][cvb-cykel], [langd-4] cm, [cykel-4], hjälm: [hjalm-4][/cvb-cykel][fakturaadress-4] (separat faktura: [gatuadress-4], [postnummer-4] [ort-4], [epost-4])[/fakturaadress-4][/resenar-4][resenar-5]
+[namn-5][cvb-cykel], [langd-5] cm, [cykel-5], hjälm: [hjalm-5][/cvb-cykel][fakturaadress-5] (separat faktura: [gatuadress-5], [postnummer-5] [ort-5], [epost-5])[/fakturaadress-5][/resenar-5][resenar-6]
+[namn-6][cvb-cykel], [langd-6] cm, [cykel-6], hjälm: [hjalm-6][/cvb-cykel][fakturaadress-6] (separat faktura: [gatuadress-6], [postnummer-6] [ort-6], [epost-6])[/fakturaadress-6][/resenar-6][resenar-7]
+[namn-7][cvb-cykel], [langd-7] cm, [cykel-7], hjälm: [hjalm-7][/cvb-cykel][fakturaadress-7] (separat faktura: [gatuadress-7], [postnummer-7] [ort-7], [epost-7])[/fakturaadress-7][/resenar-7][resenar-8]
+[namn-8][cvb-cykel], [langd-8] cm, [cykel-8], hjälm: [hjalm-8][/cvb-cykel][fakturaadress-8] (separat faktura: [gatuadress-8], [postnummer-8] [ort-8], [epost-8])[/fakturaadress-8][/resenar-8]
+
+Övrig info:
+[ovrig-info]
+
+[cvb-hjalm-nej]Observera att leverantören inte har hjälmar att hyra och att ni får ta med dessa själva.
+
+[/cvb-hjalm-nej]Bokningen är bindande om det finns plats. Om det inte finns plats på önskat datum hör vi av oss med förslag på alternativ.
+
+Vänliga hälsningar
+Cykla & Vandra

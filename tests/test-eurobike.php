@@ -236,6 +236,23 @@ ok( 0 === CV_Bokningsval::settings_for( 'NY-RESA-X', 0 )['gravel'], 'nya resor h
 $diff = CV_Bokningsval::compare_structure( '[select* cykel-1 include_blank "a" "b" "c" "d" "e"]', '[select* cykel-1 include_blank "a" "b" "c" "d"]' );
 ok( array( 'cykel-1 har 4 alternativ i stället för 5' ) === $diff, 'översättning utan Gravel varnas: ' . implode( '; ', $diff ) );
 
+echo "\n--- Bekräftelsemailet (mailmall-bekraftelse-sv.txt) ---\n";
+$tpl = file_get_contents( __DIR__ . '/../mailmall-bekraftelse-sv.txt' );
+$GLOBALS['opts'] = array( 'cvb_settings' => array(
+	'VAND' => array( 'typ' => 'vandring' ),
+	'EURO' => array( 'typ' => 'cykel', 'hjalm' => 'nej' ),
+	'NL'   => array( 'typ' => 'cykel', 'hjalm' => 'hyra', 'stold' => 1, 'assistans' => 1 ),
+) );
+$GLOBALS['cur'] = 0;
+$v = CV_Bokningsval::apply_mail_blocks( $tpl, CV_Bokningsval::settings_for( 'VAND', 0 ) );
+ok( false === strpos( $v, 'cm' ) && false === strpos( $v, 'hjälm' ) && false === strpos( $v, 'försäkring' ) && false === strpos( $v, '[cvb-' ), 'vandring: inget om cykel, hjälm eller försäkring' );
+ok( false !== strpos( $v, "[mc4wp-FNAME] [mc4wp-LNAME][resenar-2]\n[namn-2][fakturaadress-2]" ), 'vandring: namnen finns kvar' );
+ok( false !== strpos( $v, "Rabattkod/Presentkort: [rabattkod]\n\nResenärer:" ), 'vandring: ingen tomrad för försäkringarna' );
+$e = CV_Bokningsval::apply_mail_blocks( $tpl, CV_Bokningsval::settings_for( 'EURO', 0 ) );
+ok( false !== strpos( $e, '[langd-1] cm, [cykel-1], hjälm: [hjalm-1]' ) && false === strpos( $e, 'försäkring' ) && false !== strpos( $e, 'Observera att leverantören' ), 'Eurobike: cykel och hjälmtext, inga försäkringar' );
+$n = CV_Bokningsval::apply_mail_blocks( $tpl, CV_Bokningsval::settings_for( 'NL', 0 ) );
+ok( false !== strpos( $n, "Cykelförsäkring: [cykelforsakring]\nAssistansförsäkring: [assistansforsakring]\n\nResenärer:" ) && false === strpos( $n, 'Observera' ), 'Holland: båda försäkringarna, ingen hjälmtext' );
+
 echo "\n--- Felaktiga reskoder ---\n";
 ok( '' !== CV_Bokningsval::code_problem( '<span data-sheets-root=' ), 'HTML från Google Sheets upptäcks' );
 ok( '' !== CV_Bokningsval::code_problem( 'Mon May 11 2026 00:00:00 GMT+0200 (Central European Summer Time)' ), 'datum upptäcks' );
