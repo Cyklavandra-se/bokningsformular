@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Cykla & Vandra – Bokningsformulär
  * Description: Ett bokningsformulär (Contact Form 7) för både cykel- och vandringsresor. Styr vilka cykeltyper, hjälmval och försäkringar som visas för varje resa, utifrån reskoden (tripcode) i kortkoden.
- * Version: 1.6.3
+ * Version: 1.7.0
  * Author: Cykla & Vandra
  * Requires at least: 6.0
  * Requires PHP: 7.4
@@ -177,6 +177,7 @@ final class CV_Bokningsval {
 			add_action( 'admin_init', array( __CLASS__, 'migrate' ) );
 			add_action( 'admin_menu', array( __CLASS__, 'admin_menu' ) );
 			add_filter( 'cyklavandra_verktyg', array( __CLASS__, 'tool_card' ) );
+			add_action( 'admin_notices', array( __CLASS__, 'translation_notice' ) );
 			add_filter( 'plugin_action_links', array( __CLASS__, 'settings_link' ), 5, 2 );
 			add_action( 'admin_post_cvb_save', array( __CLASS__, 'handle_save' ) );
 			add_action( 'admin_post_cvb_import', array( __CLASS__, 'handle_import' ) );
@@ -627,6 +628,37 @@ final class CV_Bokningsval {
 		);
 	}
 
+	/**
+	 * Påminnelse i Contact Form 7 och på kontrollpanelen när formulärets
+	 * översättningar inte stämmer med originalet, så att den syns där formuläret ändras.
+	 */
+	public static function translation_notice() {
+		if ( ! current_user_can( self::CAP ) || ! function_exists( 'get_current_screen' ) ) {
+			return;
+		}
+		$screen = get_current_screen();
+		$id     = $screen ? (string) $screen->id : '';
+		if ( 'dashboard' !== $id && false === strpos( $id, 'wpcf7' ) ) {
+			return;
+		}
+		$issues = self::translation_issues( self::official_form() );
+		if ( ! $issues['missing'] && ! $issues['differs'] ) {
+			return;
+		}
+		$parts = array();
+		if ( $issues['missing'] ) {
+			$parts[] = 'saknar översättning till ' . implode( ', ', $issues['missing'] );
+		}
+		if ( $issues['differs'] ) {
+			$parts[] = 'översättningen till ' . implode( ', ', array_keys( $issues['differs'] ) ) . ' stämmer inte med originalet';
+		}
+		printf(
+			'<div class="notice notice-warning"><p><strong>Bokningsformuläret:</strong> %s. <a href="%s">Visa detaljer</a></p></div>',
+			esc_html( implode( ', och ', $parts ) ),
+			esc_url( admin_url( 'admin.php?page=' . self::SLUG ) )
+		);
+	}
+
 	/** Kortet på översiktssidan under Cykla&Vandra. */
 	public static function tool_card( $verktyg ) {
 		if ( ! current_user_can( self::CAP ) ) {
@@ -679,6 +711,8 @@ final class CV_Bokningsval {
 				$ids[] = $idm[1];
 			}
 			$forms[] = array(
+				'post_id'      => (int) $post->ID,
+				'body'         => $body,
 				'ids'          => $ids,
 				'title'        => $form->title(),
 				'lang'         => $lang,
@@ -704,24 +738,182 @@ final class CV_Bokningsval {
 	 * @return array|null array( 'title', 'shortcode', 'ids', 'langs' )
 	 */
 	public static function official_form( $forms = null ) {
-		$forms = null === $forms ? self::booking_forms() : $forms;
-		$main  = null;
+		$forms    = null === $forms ? self::booking_forms() : $forms;
+		$new      = array_values( array_filter( $forms, function ( $f ) { return $f['new_template']; } ) );
+		if ( ! $new ) {
+			return null;
+		}
+		// Originalet är formuläret på standardspråket (svenska), annars det första.
+		$default = strtoupper( (string) apply_filters( 'wpml_default_language', null ) );
+		$main    = $new[0];
+		foreach ( $new as $f ) {
+			if ( $default && $f['lang'] === $default ) {
+				$main = $f;
+				break;
+			}
+		}
+
+		// Översättningarna enligt WPML. Utan WPML räknas alla formulär med nya mallen.
+		$members = array();
+		$by_post = array();
 		foreach ( $forms as $f ) {
-			if ( ! $f['new_template'] ) {
+			if ( ! empty( $f['post_id'] ) ) {
+				$by_post[ $f['post_id'] ] = $f;
+			}
+		}
+		$trid         = empty( $main['post_id'] ) ? null : apply_filters( 'wpml_element_trid', null, $main['post_id'], 'post_wpcf7_contact_form' );
+		$translations = $trid ? apply_filters( 'wpml_get_element_translations', null, $trid, 'post_wpcf7_contact_form' ) : null;
+		if ( is_array( $translations ) && $translations ) {
+			foreach ( $translations as $code => $t ) {
+				$post_id = (int) ( is_object( $t ) ? $t->element_id : 0 );
+				if ( ! $post_id ) {
+					continue;
+				}
+				if ( isset( $by_post[ $post_id ] ) ) {
+					$member = $by_post[ $post_id ];
+				} else {
+					// Översättningen saknar tripcode och kom därför inte med i listan.
+					$member = array(
+						'post_id' => $post_id,
+						'body'    => (string) get_post_meta( $post_id, '_form', true ),
+						'ids'     => array( (string) $post_id ),
+						'title'   => get_the_title( $post_id ),
+					);
+				}
+				$member['lang'] = strtoupper( is_object( $t ) && ! empty( $t->language_code ) ? $t->language_code : (string) $code );
+				$members[]      = $member;
+			}
+		} else {
+			$members = $new;
+		}
+
+		$main['members']    = $members;
+		$main['langs']      = array();
+		$main['old_helmet'] = false;
+		foreach ( $members as $m ) {
+			$main['ids']        = array_values( array_unique( array_merge( $main['ids'], $m['ids'] ) ) );
+			$main['langs'][]    = isset( $m['lang'] ) ? $m['lang'] : '';
+			$main['old_helmet'] = $main['old_helmet'] || false !== strpos( (string) $m['body'], '"Hjälm ingår"' );
+		}
+		$main['langs'] = array_values( array_unique( array_filter( $main['langs'] ) ) );
+		return $main;
+	}
+
+	/**
+	 * Formulärets struktur: taggarna i ordning (typ, namn och antal alternativ i
+	 * listor) och mallens klasser. Texterna ingår inte, eftersom de ska vara olika
+	 * på olika språk.
+	 */
+	public static function form_structure( $body ) {
+		$body  = (string) $body;
+		$tags  = array();
+		if ( preg_match_all( '/\[(?!\/)([a-z_]+\*?)((?:\s+[^\]"\s]+|\s+"[^"]*")*)\s*\]/', $body, $m, PREG_SET_ORDER ) ) {
+			foreach ( $m as $tag ) {
+				$type  = $tag[1];
+				$rest  = trim( $tag[2] );
+				$name  = preg_match( '/^([A-Za-z][A-Za-z0-9_-]*)/', $rest, $nm ) ? $nm[1] : '';
+				$base  = rtrim( $type, '*' );
+				$entry = array( 'type' => $type, 'name' => $name );
+				if ( in_array( $base, array( 'select', 'radio', 'checkbox' ), true ) ) {
+					$entry['count'] = preg_match_all( '/"[^"]*"/', $rest );
+					$entry['blank'] = false !== strpos( $rest, 'include_blank' );
+				}
+				$tags[] = $entry;
+			}
+		}
+		$markers = array();
+		foreach ( array( 'cvb-cykel', 'cvb-stold', 'cvb-assistans', 'resenar-rad', '[hidden tripcode' ) as $marker ) {
+			$markers[ $marker ] = substr_count( $body, $marker );
+		}
+		return array( 'tags' => $tags, 'markers' => $markers );
+	}
+
+	/**
+	 * Skillnader i struktur mellan originalet och en översättning, som texter.
+	 *
+	 * @return string[]
+	 */
+	public static function compare_structure( $original_body, $translated_body ) {
+		$a      = self::form_structure( $original_body );
+		$b      = self::form_structure( $translated_body );
+		$issues = array();
+		$label  = function ( $t ) {
+			return '' !== $t['name'] ? $t['name'] : '[' . $t['type'] . ']';
+		};
+		$a_names = array_map( $label, $a['tags'] );
+		$b_names = array_map( $label, $b['tags'] );
+
+		$missing = array_diff( $a_names, $b_names );
+		$extra   = array_diff( $b_names, $a_names );
+		if ( $missing ) {
+			$issues[] = 'saknar ' . implode( ', ', array_unique( $missing ) );
+		}
+		if ( $extra ) {
+			$issues[] = 'har fält som inte finns i originalet: ' . implode( ', ', array_unique( $extra ) );
+		}
+		if ( ! $missing && ! $extra && $a_names !== $b_names ) {
+			$issues[] = 'fälten ligger i en annan ordning';
+		}
+		$b_by_name = array();
+		foreach ( $b['tags'] as $t ) {
+			$b_by_name[ $label( $t ) ] = $t;
+		}
+		foreach ( $a['tags'] as $t ) {
+			$key = $label( $t );
+			if ( ! isset( $b_by_name[ $key ] ) ) {
 				continue;
 			}
-			if ( ! $main ) {
-				$main          = $f;
-				$main['langs'] = array();
+			$u = $b_by_name[ $key ];
+			if ( $t['type'] !== $u['type'] ) {
+				$issues[] = sprintf( '%s är %s i stället för %s', $key, $u['type'], $t['type'] );
 			}
-			$main['ids']     = array_values( array_unique( array_merge( $main['ids'], $f['ids'] ) ) );
-			$main['old_helmet'] = ! empty( $main['old_helmet'] ) || ! empty( $f['old_helmet'] );
-			$main['langs'][] = $f['lang'];
+			if ( isset( $t['count'] ) && isset( $u['count'] ) && $t['count'] !== $u['count'] ) {
+				$issues[] = sprintf( '%s har %d alternativ i stället för %d', $key, $u['count'], $t['count'] );
+			}
 		}
-		if ( $main ) {
-			$main['langs'] = array_values( array_unique( array_filter( $main['langs'] ) ) );
+		foreach ( $a['markers'] as $marker => $count ) {
+			if ( $b['markers'][ $marker ] !== $count ) {
+				$issues[] = sprintf( '%s finns %d gånger i stället för %d', trim( $marker, '[' ), $b['markers'][ $marker ], $count );
+			}
 		}
-		return $main;
+		return $issues;
+	}
+
+	/**
+	 * Problem med det officiella formulärets översättningar: språk som saknar
+	 * översättning och översättningar vars struktur skiljer sig från originalet.
+	 *
+	 * @return array( 'missing' => string[], 'differs' => array( språk => string[] ) )
+	 */
+	public static function translation_issues( $official ) {
+		$result = array( 'missing' => array(), 'differs' => array() );
+		if ( ! $official || empty( $official['members'] ) ) {
+			return $result;
+		}
+		$active = apply_filters( 'wpml_active_languages', null, array( 'skip_missing' => 0 ) );
+		if ( is_array( $active ) ) {
+			$have              = array_map( 'strtoupper', $official['langs'] );
+			$result['missing'] = array_values( array_diff( array_map( 'strtoupper', array_keys( $active ) ), $have ) );
+		}
+		$original = null;
+		foreach ( $official['members'] as $m ) {
+			if ( (int) $m['post_id'] === (int) $official['post_id'] ) {
+				$original = $m;
+			}
+		}
+		if ( ! $original ) {
+			return $result;
+		}
+		foreach ( $official['members'] as $m ) {
+			if ( (int) $m['post_id'] === (int) $original['post_id'] ) {
+				continue;
+			}
+			$issues = self::compare_structure( $original['body'], $m['body'] );
+			if ( $issues ) {
+				$result['differs'][ isset( $m['lang'] ) && $m['lang'] ? $m['lang'] : '#' . $m['post_id'] ] = $issues;
+			}
+		}
+		return $result;
 	}
 
 	/** Kortkoden för en resa, eller '' om inget formulär har den nya mallen. */
@@ -749,8 +941,20 @@ final class CV_Bokningsval {
 				<?php if ( ! empty( $official['old_helmet'] ) ) : ?>
 					<p class="cvb-old">Formuläret har fortfarande texten <code>"Hjälm ingår"</code>. Kunderna ser ändå "Hjälm (gratis)", men byt gärna texten till <code>"Hjälm (gratis)"</code> på alla 8 ställen under fliken Formulär, så att även mailet säger samma sak.</p>
 				<?php endif; ?>
-				<?php if ( count( $official['langs'] ) < 2 && $old ) : ?>
-					<p class="cvb-old">Formuläret finns bara på <?php echo esc_html( $official['langs'] ? implode( ', ', $official['langs'] ) : 'ett språk' ); ?>. Översätt det i WPML så att de norska sidorna får ett norskt formulär.</p>
+				<?php
+				$issues = self::translation_issues( $official );
+				if ( $issues['missing'] || $issues['differs'] ) :
+					?>
+					<div class="cvb-warn">
+						<strong>Översättningarna av formuläret behöver uppdateras.</strong>
+						<?php if ( $issues['missing'] ) : ?>
+							<p>Formuläret saknar översättning till <strong><?php echo esc_html( implode( ', ', $issues['missing'] ) ); ?></strong>. Sidor på det språket kan inte visa formuläret förrän det är översatt i WPML.</p>
+						<?php endif; ?>
+						<?php foreach ( $issues['differs'] as $lang => $list ) : ?>
+							<p><strong><?php echo esc_html( $lang ); ?></strong> skiljer sig från originalet: <?php echo esc_html( implode( '; ', $list ) ); ?>.</p>
+						<?php endforeach; ?>
+						<p>Uppdatera översättningen i WPML så att den har samma fält, ordning och alternativ som originalet (texterna ska vara översatta). Varningen försvinner när strukturen stämmer.</p>
+					</div>
 				<?php endif; ?>
 			<?php else : ?>
 				<h2>Så lägger du in bokningsformuläret på en resa</h2>
@@ -1004,6 +1208,8 @@ final class CV_Bokningsval {
 			.cvb-box { background:#fff; border:1px solid #c3c4c7; border-left:4px solid #2271b1; padding:4px 16px 12px; margin:12px 0 16px; max-width:1100px; }
 			.cvb-box h2 { margin:12px 0 4px; font-size:15px; }
 			.cvb-old { color:#996800; font-size:12px; }
+			.cvb-warn { background:#fcf9e8; border:1px solid #dba617; border-radius:4px; padding:8px 12px; margin:8px 0; }
+			.cvb-warn p { margin:6px 0; }
 			.cvb-help summary, .cvb-box summary { cursor:pointer; color:#2271b1; margin:6px 0; }
 			.cvb-table tr.cvb-sep th { background:#f0f0f1; padding:18px 10px 8px; text-align:left; font-size:14px; font-weight:600; border-top:2px solid #c3c4c7; }
 			.cvb-table tr.cvb-sep th span { font-weight:400; color:#646970; }

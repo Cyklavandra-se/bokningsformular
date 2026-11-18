@@ -10,7 +10,7 @@ function wp_parse_args($a,$d){return array_merge($d,$a);}
 function sanitize_text_field($s){return trim($s);}
 function sanitize_key($s){return strtolower(preg_replace('/[^a-z0-9_\-]/i','',$s));}
 function wp_unslash($s){return $s;}
-function apply_filters($h,$v){return $v;}
+function apply_filters($h,$v,...$a){return array_key_exists($h,$GLOBALS['filter_returns']??[])?$GLOBALS['filter_returns'][$h]:$v;}
 function remove_accents($s){return strtr($s,['å'=>'a','ä'=>'a','ö'=>'o','Å'=>'A','Ä'=>'A','Ö'=>'O']);}
 class WPCF7_Pipes{public $r;function __construct($r){$this->r=$r;}}
 class WPCF7_ContactForm{static $attr='';static function get_current(){return new self;} function shortcode_attr($k){return self::$attr;} static function get_instance($p){return new Fake_Form($p->ID);}}
