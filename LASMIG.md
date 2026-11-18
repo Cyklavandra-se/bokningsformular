@@ -55,7 +55,7 @@ Klistra in `formularmall-sv.txt` under fliken **Formulär** i bokningsformuläre
 Det viktiga i mallen:
 
 - `cykel-N` har alternativen **i denna ordning**: Vanlig cykel, Elcykel, Sportig cykel, Tar med egen
-- `hjalm-N` har alternativen **i denna ordning**: Hyr hjälm, Tar med egen, Hjälm ingår
+- `hjalm-N` har alternativen **i denna ordning**: Hyr hjälm, Tar med egen, Hjälm (gratis)
 - Raden med längd, cykel och hjälm ligger i `<div class="resenar-rad cvb-cykel">`
 - Försäkringsfälten ligger i `<div class="cvb-stold">…</div>` och `<div class="cvb-assistans">…</div>`
 - Raden `[hidden tripcode default:shortcode_attr]` måste finnas kvar
@@ -70,7 +70,7 @@ I det norska formuläret får texterna vara på norska, men ordningen, fältnamn
 | Kryssrutor för cykeltyp och egen cykel | Bara de ikryssade typerna visas i listan *Cykel* |
 | Hjälm: Att hyra | "Hyr hjälm" och "Tar med egen" |
 | Hjälm: Erbjuds inte | Bara "Tar med egen", förvalt |
-| Hjälm: Ingår | Bara "Hjälm ingår", förvalt |
+| Hjälm: Ingår | "Hjälm (gratis)" och "Tar med egen" |
 | Stöld- och assistansförsäkring | Visas bara när rutan är ikryssad |
 
 En cykelresa som saknar inställning får standardläget: vanlig cykel, elcykel och egen cykel, hyrhjälm och inga försäkringar.

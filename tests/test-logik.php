@@ -17,7 +17,7 @@ class WPCF7_ContactForm{static $attr='';static function get_current(){return new
 class Tag{public $type,$basetype,$name,$options,$raw_values,$values,$labels,$pipes;}
 require __DIR__.'/../bokningsformular.php';
 function mk($type,$name,$vals,$opts=['include_blank']){$t=new Tag;$t->type=$type;$t->basetype=rtrim($type,'*');$t->name=$name;$t->options=$opts;$t->raw_values=$vals;$t->values=$vals;$t->labels=$vals;return $t;}
-$B=["Vanlig cykel","Elcykel","Sportig cykel","Tar med egen"];$H=["Hyr hjälm","Tar med egen","Hjälm ingår"];
+$B=["Vanlig cykel","Elcykel","Sportig cykel","Tar med egen"];$H=["Hyr hjälm","Tar med egen","Hjälm (gratis)"];
 $GLOBALS['opts']['cvb_settings']=[
  'EB-1'=>['hjalm'=>'nej','vanlig'=>1,'el'=>1,'sportig'=>1,'egen'=>1,'stold'=>0,'assistans'=>0,'klar'=>1],
  'EL-1'=>['hjalm'=>'ingar','vanlig'=>0,'el'=>1,'sportig'=>0,'egen'=>0,'stold'=>0,'assistans'=>0,'klar'=>1],

@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Cykla & Vandra – Bokningsformulär
  * Description: Ett bokningsformulär (Contact Form 7) för både cykel- och vandringsresor. Styr vilka cykeltyper, hjälmval och försäkringar som visas för varje resa, utifrån reskoden (tripcode) i kortkoden.
- * Version: 1.6.0
+ * Version: 1.6.1
  * Author: Cykla & Vandra
  * Requires at least: 6.0
  * Requires PHP: 7.4
@@ -29,13 +29,16 @@ final class CV_Bokningsval {
 	 * alternativen i exakt denna ordning (texterna får vara på valfritt språk).
 	 *
 	 * cykel-N: "Vanlig cykel" "Elcykel" "Sportig cykel" "Tar med egen"
-	 * hjalm-N: "Hyr hjälm" "Tar med egen" "Hjälm ingår"
+	 * hjalm-N: "Hyr hjälm" "Tar med egen" "Hjälm (gratis)"
+	 *
+	 * Listorna i HELMET_INDEX visas i den ordning de står. När hjälmen ingår
+	 * väljer kunden mellan "Hjälm (gratis)" och "Tar med egen" (Pär, 2026-11-18).
 	 */
 	const BIKE_INDEX   = array( 0 => 'vanlig', 1 => 'el', 2 => 'sportig', 3 => 'egen' );
 	const HELMET_INDEX = array(
 		'hyra'  => array( 0, 1 ),
 		'nej'   => array( 1 ),
-		'ingar' => array( 2 ),
+		'ingar' => array( 2, 1 ),
 	);
 
 	public static function bool_fields() {
@@ -213,7 +216,7 @@ final class CV_Bokningsval {
 	 * Engångsändringar av sparade inställningar.
 	 * 2: Alla Eurofun-resor får sportig cykel.
 	 * 3: Eurofun-resor och resor från Eurobike, Radweg-Reisen och Velociped får "Hjälm erbjuds inte".
-	 * 4: S-Capes resor i Frankrike får "Hjälm ingår".
+	 * 4: S-Capes resor i Frankrike får "Hjälm ingår" (i formuläret "Hjälm (gratis)" eller "Tar med egen").
 	 */
 	public static function migrate() {
 		$version = (int) get_option( 'cvb_schema', 1 );
@@ -1171,7 +1174,7 @@ final class CV_Bokningsval {
 		if ( false !== strpos( $n, 'hyr' ) ) {
 			return 'hyra';
 		}
-		if ( false !== strpos( $n, 'ingar' ) || false !== strpos( $n, 'inkl' ) ) {
+		if ( false !== strpos( $n, 'ingar' ) || false !== strpos( $n, 'inkl' ) || false !== strpos( $n, 'gratis' ) ) {
 			return 'ingar';
 		}
 		if ( false !== strpos( $n, 'erbjudsinte' ) || false !== strpos( $n, 'ingen' ) || 'nej' === $n ) {
