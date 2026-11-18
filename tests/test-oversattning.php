@@ -203,6 +203,24 @@ $msg = $GLOBALS['transients']['cvb_notice_1']['message'] ?? '';
 ok( false !== strpos( $msg, 'på 2 sidor (1 resa)' ), 'meddelandet räknar sidor och resor: ' . strip_tags( $msg ) );
 $_POST = array();
 
+echo "\n--- Spara en rad direkt (AJAX) ---\n";
+class Json_Response extends Exception { public $data; public $ok; }
+function check_ajax_referer( $a ) { return true; }
+function wp_send_json_success( $d ) { $e = new Json_Response(); $e->ok = true; $e->data = $d; throw $e; }
+function wp_send_json_error( $d, $code = 0 ) { $e = new Json_Response(); $e->ok = false; $e->data = $d; throw $e; }
+$GLOBALS['opts']['cvb_settings'] = array( 'ANNAN' => array( 'typ' => 'cykel', 'hjalm' => 'hyra', 'klar' => 1 ) );
+$_POST = array( 'cvb' => array( 'Trip 07-06' => array( 'present' => '1', 'typ' => 'cykel', 'leverantor' => 'Dutch Bike tours', 'hjalm' => 'hyra', 'vanlig' => '1', 'el' => '1', 'stold' => '1', 'kommentar' => 'Hej', 'klar' => '1' ) ) );
+$res = null;
+try { CV_Bokningsval::ajax_save_row(); } catch ( Json_Response $e ) { $res = $e; }
+$saved = $GLOBALS['opts']['cvb_settings']['Trip 07-06'] ?? array();
+ok( $res && $res->ok && 1 === $saved['klar'] && 1 === $saved['stold'] && 0 === $saved['sportig'] && 'Hej' === $saved['kommentar'], 'raden sparas, urkryssade rutor blir 0' );
+ok( isset( $GLOBALS['opts']['cvb_settings']['ANNAN'] ), 'andra resor rörs inte' );
+$_POST = array( 'cvb' => array( 'A' => array( 'present' => '1' ), 'B' => array( 'present' => '1' ) ) );
+$res = null;
+try { CV_Bokningsval::ajax_save_row(); } catch ( Json_Response $e ) { $res = $e; }
+ok( $res && ! $res->ok, 'mer än en resa i samma anrop nekas' );
+$_POST = array();
+
 
 echo $fel ? "\n$fel FEL\n" : "\nAlla OK\n";
 exit( $fel ? 1 : 0 );

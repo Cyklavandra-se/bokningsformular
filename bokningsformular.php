@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Cykla & Vandra – Bokningsformulär
  * Description: Ett bokningsformulär (Contact Form 7) för både cykel- och vandringsresor. Styr vilka cykeltyper, hjälmval och försäkringar som visas för varje resa, utifrån reskoden (tripcode) i kortkoden.
- * Version: 1.9.0
+ * Version: 1.10.0
  * Author: Cykla & Vandra
  * Requires at least: 6.0
  * Requires PHP: 7.4
@@ -181,6 +181,7 @@ final class CV_Bokningsval {
 			add_action( 'admin_notices', array( __CLASS__, 'translation_notice' ) );
 			add_filter( 'plugin_action_links', array( __CLASS__, 'settings_link' ), 5, 2 );
 			add_action( 'admin_post_cvb_save', array( __CLASS__, 'handle_save' ) );
+			add_action( 'wp_ajax_cvb_save_row', array( __CLASS__, 'ajax_save_row' ) );
 			add_action( 'admin_post_cvb_import', array( __CLASS__, 'handle_import' ) );
 			add_action( 'admin_post_cvb_export', array( __CLASS__, 'handle_export' ) );
 			add_action( 'admin_post_cvb_swap_forms', array( __CLASS__, 'handle_swap_forms' ) );
@@ -1235,7 +1236,7 @@ final class CV_Bokningsval {
 			</details>
 			<p>
 				<strong><?php echo esc_html( count( $tours ) ); ?></strong> resor,
-				<strong><?php echo esc_html( $not_done ); ?></strong> cykelresor ej klara.
+				<strong id="cvb-not-done"><?php echo esc_html( $not_done ); ?></strong> cykelresor ej klara.
 				<?php
 				$other_form = $official ? count( array_filter( $tours, function ( $t ) use ( $official ) { return (bool) array_diff( $t['forms'], $official['ids'] ); } ) ) : 0;
 				if ( $other_form ) :
@@ -1387,7 +1388,7 @@ final class CV_Bokningsval {
 								<?php if ( $tour['langs'] ) : ?>
 									<span class="cvb-langs"><?php echo esc_html( strtoupper( implode( ' · ', $tour['langs'] ) ) ); ?></span>
 								<?php endif; ?>
-								<?php if ( $rows[ $code ]['todo'] ) : ?><span class="cvb-badge">Ej ifylld</span><?php endif; ?>
+								<span class="cvb-badge cvb-todo-badge"<?php echo $rows[ $code ]['todo'] ? '' : ' hidden'; ?>>Ej ifylld</span>
 								<input type="hidden" name="<?php echo $n; ?>[present]" value="1">
 								<?php if ( ! self::SHOW_COMMENT ) : ?>
 									<input type="hidden" name="<?php echo $n; ?>[kommentar]" value="<?php echo esc_attr( $s['kommentar'] ); ?>">
@@ -1406,7 +1407,7 @@ final class CV_Bokningsval {
 									<?php endforeach; ?>
 								</select>
 							</td>
-							<td class="cvb-c"><input type="checkbox" name="<?php echo $n; ?>[klar]" value="1" <?php checked( $done ); ?> aria-label="Klar"></td>
+							<td class="cvb-c cvb-klar"><input type="checkbox" name="<?php echo $n; ?>[klar]" value="1" <?php checked( $done ); ?> aria-label="Klar"><span class="cvb-save-status" aria-live="polite"></span></td>
 							<?php if ( $official ) : ?>
 								<td class="cvb-c">
 									<?php if ( self::code_problem( $code ) ) : ?>
@@ -1426,6 +1427,7 @@ final class CV_Bokningsval {
 						<option value="<?php echo esc_attr( $supplier ); ?>">
 					<?php endforeach; ?>
 				</datalist>
+				<p class="cvb-autosave-note">Ändringar sparas direkt när du klickar i tabellen. Knappen behövs bara om något inte gick att spara.</p>
 				<?php submit_button( 'Spara alla' ); ?>
 			</form>
 
@@ -1476,6 +1478,13 @@ final class CV_Bokningsval {
 			.cvb-swapbox p { margin:8px 0; }
 			.cvb-hint { margin-left:8px; color:#646970; }
 			.cvb-swap-one { margin-left:4px; font-size:12px; }
+			.cvb-klar { white-space:nowrap; }
+			.cvb-badge[hidden] { display:none; }
+			.cvb-save-status { display:inline-block; width:1em; margin-left:4px; font-weight:700; }
+			.cvb-save-saving { color:#646970; }
+			.cvb-save-ok { color:#00a32a; }
+			.cvb-save-err { color:#d63638; cursor:help; }
+			.cvb-autosave-note { color:#646970; margin:12px 0 0; }
 			.cvb-table code.cvb-bad-code { background:#fcf0f1; color:#8a2424; }
 			.cvb-bad-note { margin-left:8px; color:#8a2424; }
 			.cvb-filter { display:flex; flex-wrap:wrap; gap:8px 16px; align-items:center; }
@@ -1557,11 +1566,78 @@ final class CV_Bokningsval {
 				tr.classList.toggle( 'cvb-ok', done && tr.dataset.rightForm === '1' );
 				tr.classList.toggle( 'cvb-todo', ! done && bike );
 				tr.classList.toggle( 'cvb-done', done || ! bike );
+				var badge = tr.querySelector( '.cvb-todo-badge' );
+				if ( badge ) {
+					badge.hidden = done || ! bike;
+				}
+				var counter = document.getElementById( 'cvb-not-done' );
+				if ( counter ) {
+					counter.textContent = document.querySelectorAll( '.cvb-table tbody tr.cvb-todo' ).length;
+				}
 			}
-			document.querySelectorAll( '.cvb-table input[name$="[klar]"]' ).forEach( function ( box ) {
-				box.addEventListener( 'change', function () {
-					paintRow( box.closest( 'tr' ) );
+
+			// Spara en rad direkt (AJAX). Anropen körs ett i taget, så att två snabba
+			// ändringar på olika rader inte skriver över varandra.
+			var ajaxUrl = <?php echo wp_json_encode( admin_url( 'admin-ajax.php' ) ); ?>;
+			var ajaxNonce = <?php echo wp_json_encode( wp_create_nonce( 'cvb_save_row' ) ); ?>;
+			var queue = Promise.resolve();
+			var pending = 0;
+			function setStatus( tr, state, message ) {
+				var el = tr.querySelector( '.cvb-save-status' );
+				if ( ! el ) {
+					return;
+				}
+				el.className = 'cvb-save-status cvb-save-' + state;
+				el.textContent = state === 'saving' ? '…' : ( state === 'ok' ? '✓' : '!' );
+				el.title = message || ( state === 'ok' ? 'Sparat' : ( state === 'saving' ? 'Sparar…' : 'Kunde inte spara' ) );
+				if ( state === 'ok' ) {
+					clearTimeout( el._t );
+					el._t = setTimeout( function () { el.textContent = ''; el.className = 'cvb-save-status'; }, 2500 );
+				}
+			}
+			function saveRow( tr ) {
+				var data = new FormData();
+				data.append( 'action', 'cvb_save_row' );
+				data.append( '_ajax_nonce', ajaxNonce );
+				tr.querySelectorAll( 'input[name^="cvb["], select[name^="cvb["]' ).forEach( function ( el ) {
+					if ( el.type === 'checkbox' && ! el.checked ) {
+						return;
+					}
+					data.append( el.name, el.value );
 				} );
+				setStatus( tr, 'saving' );
+				pending++;
+				queue = queue.then( function () {
+					return fetch( ajaxUrl, { method: 'POST', body: data, credentials: 'same-origin' } )
+						.then( function ( r ) { return r.json(); } )
+						.then( function ( j ) {
+							if ( j && j.success ) {
+								setStatus( tr, 'ok' );
+							} else {
+								setStatus( tr, 'err', ( j && j.data && j.data.message ) || 'Kunde inte spara. Klicka Spara alla.' );
+							}
+						} )
+						.catch( function () {
+							setStatus( tr, 'err', 'Kunde inte spara (nätverksfel). Klicka Spara alla.' );
+						} )
+						.then( function () { pending--; } );
+				} );
+			}
+			document.querySelector( '.cvb-table' ).addEventListener( 'change', function ( e ) {
+				var tr = e.target.closest( 'tbody tr' );
+				if ( ! tr || ! e.target.name || e.target.name.indexOf( 'cvb[' ) !== 0 ) {
+					return;
+				}
+				if ( /\[klar\]$/.test( e.target.name ) ) {
+					paintRow( tr );
+				}
+				saveRow( tr );
+			} );
+			window.addEventListener( 'beforeunload', function ( e ) {
+				if ( pending > 0 ) {
+					e.preventDefault();
+					e.returnValue = '';
+				}
 			} );
 
 			// Typ: knappen C/V öppnar en liten meny med Cykel och Vandring.
@@ -1600,6 +1676,7 @@ final class CV_Bokningsval {
 					btn.title = labels[ value ] + ' – klicka för att byta';
 					cell.closest( 'tr' ).classList.toggle( 'cvb-hike', value === 'vandring' );
 					paintRow( cell.closest( 'tr' ) );
+					saveRow( cell.closest( 'tr' ) );
 					closeMenus();
 					btn.focus();
 				} );
@@ -1635,6 +1712,30 @@ final class CV_Bokningsval {
 		set_transient( 'cvb_notice_' . get_current_user_id(), array( 'message' => $message, 'type' => $type ), 120 );
 		wp_safe_redirect( admin_url( 'admin.php?page=' . self::SLUG ) );
 		exit;
+	}
+
+	/**
+	 * Sparar en rad direkt när något ändras på den (AJAX), utan att sidan laddas om.
+	 * Webbläsaren skickar samma fält som formuläret Spara alla, men bara för en resa.
+	 */
+	public static function ajax_save_row() {
+		if ( ! current_user_can( self::CAP ) ) {
+			wp_send_json_error( array( 'message' => 'Behörighet saknas.' ), 403 );
+		}
+		check_ajax_referer( 'cvb_save_row' );
+		$posted = isset( $_POST['cvb'] ) && is_array( $_POST['cvb'] ) ? wp_unslash( $_POST['cvb'] ) : array(); // phpcs:ignore WordPress.Security.ValidatedSanitizedInput
+		if ( 1 !== count( $posted ) ) {
+			wp_send_json_error( array( 'message' => 'En resa i taget.' ), 400 );
+		}
+		$code = sanitize_text_field( (string) key( $posted ) );
+		$row  = reset( $posted );
+		if ( '' === $code || ! is_array( $row ) || empty( $row['present'] ) ) {
+			wp_send_json_error( array( 'message' => 'Reskod saknas.' ), 400 );
+		}
+		$all          = self::all_settings();
+		$all[ $code ] = self::sanitize_row( $row );
+		update_option( self::OPTION, $all, false );
+		wp_send_json_success( array( 'code' => $code, 'settings' => $all[ $code ] ) );
 	}
 
 	public static function handle_save() {
