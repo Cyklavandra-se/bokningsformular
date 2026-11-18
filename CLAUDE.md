@@ -21,7 +21,7 @@ WordPress-tillägg för cyklavandra.se. Det låter **ett** bokningsformulär i C
   - `hjalm`: `hyra`, `ingar` eller `nej`.
   - kryssrutor: `vanlig`, `el`, `sportig`, `egen`, `stold`, `assistans`.
   - `leverantor`: fritext, t.ex. `Eurobike`, `S-Cape` (namnen kommer från arket Booking Codes).
-  - `kommentar` (dold på adminsidan, `SHOW_COMMENT = false`, men sparas via ett dolt fält och följer med i exporten) och `klar` (visas som **Kollad** i admin och CSV; importen läser kolumnen Kollad eller Klar).
+  - `kommentar` (dold på adminsidan, `SHOW_COMMENT = false`, men sparas via ett dolt fält och följer med i exporten) och `klar` (visas som **Klar** i admin och CSV; importen läser kolumnen Klar eller Kollad).
 - **Reskoden för det aktuella formuläret** hämtas vid visning från `WPCF7_ContactForm::get_current()->shortcode_attr('tripcode')`. Vid inskick hämtas den från `$_POST['tripcode']` (det dolda fältet). Sidans ID, som används för att gissa typen, kommer från `$_POST['_wpcf7_container_post']` eller `get_the_ID()`.
 - **Filtret `wpcf7_form_tag`** körs både vid visning och vid validering:
   - `cykel-N` och `hjalm-N`: tar bort alternativ **efter position** (se nedan) och bygger om `WPCF7_Pipes`. När bara ett alternativ återstår tas `include_blank` bort, så att det alternativet blir förvalt.
@@ -33,10 +33,12 @@ WordPress-tillägg för cyklavandra.se. Det låter **ett** bokningsformulär i C
 
 - **Eurofun:** reskoder som börjar med landskod och bindestreck (`is_eurofun()`, `/^[A-Z]{2}-/`) tillhör Eurofun-gruppen: Eurobike, Radweg-Reisen och Velociped (cykel) samt Eurohike (vandring). Det stämmer med arket Booking Codes. De ska ha `sportig` = 1 och `hjalm` = `nej`.
 - **Ingen hjälmhyra:** Eurobike, Radweg-Reisen och Velociped (`NO_HELMET_SUPPLIERS`, `supplier_without_helmet()`, jämförs med `norm()`) ger `hjalm` = `nej`.
-- Reglerna tillämpas i `defaults( $code )`, vid CSV-import och i engångsändringen `migrate()` (`cvb_schema`: 2 = sportig, 3 = hjälm). Efteråt går valen att ändra manuellt; de tvingas inte vid sparning.
+- **S-Cape i Frankrike:** hjälmen ingår (`is_scape_france()`: reskod `FRSB…`/`FRSW…`, eller leverantören S-Cape och reskod som börjar med `FR`).
+- `helmet_rule( $code, $supplier )` samlar hjälmreglerna och ger `ingar`, `nej` eller `''`.
+- Reglerna tillämpas i `defaults( $code )`, vid CSV-import och i engångsändringen `migrate()` (`cvb_schema`: 2 = sportig, 3 = ingen hjälmhyra, 4 = S-Cape Frankrike). Efteråt går valen att ändra manuellt; de tvingas inte vid sparning.
 - **Import** skriver bara över kolumner som finns i filen (utgår från `settings_for()`). Rubrikerna `Tripcode`, `Vår hemsida` och `Resans namn` i arket Booking Codes fungerar som `Reskod`, `Webbsida` och `Resa`. En reskod som inte finns i någon kortkod sparas inte utan rapporteras.
 - **Reskoder kan innehålla mellanslag och andra tecken** (`Trip 07-06`, `Trip: 08-08`, `Kattegattleden 4 nätter`, `Mjölkvägen & Rallarvägen`). `extract_codes()` läser hela värdet inom citattecken, och alla uppslag går via `normalize_code()` (avkodar `&amp;` och kör `sanitize_text_field`). Värdet som skickas i mailen ändras inte.
-- **Adminsidan** filtrerar på typ (standard: Cykel) bredvid sökrutan. Filtret använder typen som var sparad när sidan laddades (`data-typ`).
+- **Adminsidan** filtrerar på typ (standard: Cykel) längst till vänster, före sökrutan. Resans namn går till redigeringssidan, och pilen ↗ öppnar resans sida i en ny flik. Filtret använder typen som var sparad när sidan laddades (`data-typ`).
 
 ## Språk och mail (måste alltid fungera)
 
@@ -80,7 +82,7 @@ Om ordningen ändras måste `BIKE_INDEX` och `HELMET_INDEX` uppdateras.
 
 ## Status (2026-11-18)
 
-- v1.0.0 är skriven men **inte testad på sajten** än. v1.1.x lägger till uppdateringar via GitHub. Pär har installerat 1.1.0 manuellt; 1.1.1 lägger till länkarna Inställningar, Sök efter uppdatering och Visa detaljer i listan över tillägg. 1.2.0: typfilter (standard Cykel), Klar heter Kollad, Eurobike får sportig cykel. 1.3.0: Leverantör, ingen hjälmhyra för Eurobike/Radweg-Reisen/Velociped, Kommentar dold, import av Booking Codes, rättad läsning av reskoder med mellanslag.
+- v1.0.0 är skriven men **inte testad på sajten** än. v1.1.x lägger till uppdateringar via GitHub. Pär har installerat 1.1.0 manuellt; 1.1.1 lägger till länkarna Inställningar, Sök efter uppdatering och Visa detaljer i listan över tillägg. 1.2.0: typfilter (standard Cykel), Klar hette Kollad, Eurobike får sportig cykel. 1.3.0: Leverantör, ingen hjälmhyra för Eurobike/Radweg-Reisen/Velociped, hjälm ingår för S-Cape i Frankrike, länk till resans sida, Kollad heter Klar igen, Kommentar dold, import av Booking Codes, rättad läsning av reskoder med mellanslag.
 - Nästa steg för Pär:
   1. Installera tillägget och läs in CSV-filen från arket över cykelresorna.
   2. Klistra in mallen i ett cykelformulär och ett vandringsformulär och provboka.

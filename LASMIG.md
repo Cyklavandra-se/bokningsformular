@@ -9,7 +9,7 @@ Ett gemensamt bokningsformulär (Contact Form 7) för både cykel- och vandrings
 
 ## Sidan Bokningsval
 
-Överst finns sökrutan och filtret **Typ**. Som standard visas bara cykelresorna. Välj **Vandring** eller **Alla** för att se fler. Kryssa i **Kollad** när en resa är genomgången.
+Överst finns filtret **Typ** och sökrutan. Som standard visas bara cykelresorna. Välj **Vandring** eller **Alla** för att se fler. Kryssa i **Klar** när en resa är genomgången. Pilen ↗ bredvid resans namn öppnar resans sida i en ny flik, och namnet öppnar sidan för redigering.
 
 ## Eurofun-resor (Eurobike, Radweg-Reisen, Velociped)
 
@@ -26,7 +26,7 @@ På vandringsresor försvinner raden med längd, cykel och hjälm för varje res
 1. Ladda ner arket från Claude som CSV.
 2. Gå till **Bokningsval → Importera CSV**.
 3. Resorna matchas mot sajten via kolumnen *Webbsida*. Om det inte går används resans namn.
-4. Rader där hjälmvalet är ifyllt markeras som **Kollad**, om filen inte har en egen kolumn **Kollad**.
+4. Rader där hjälmvalet är ifyllt markeras som **Klar**, om filen inte har en egen kolumn **Klar** (eller **Kollad**).
 5. Bara kolumnerna som finns i filen ändras. Övriga inställningar för resan behålls.
 6. Resor från Eurofun-gruppen får alltid **Sportig cykel** och **Hjälm: Erbjuds inte**, även om filen säger något annat (se nedan).
 
@@ -41,6 +41,8 @@ Varje resa har en kolumn **Leverantör**. Den fylls i från arket *Booking Codes
 Bara leverantören ändras, eftersom arket inte har några kolumner för hjälm eller cyklar. Rader i arket som inte finns på sajten listas efter importen. Leverantören går också att skriva in direkt i tabellen, och sökrutan söker även på leverantör.
 
 Resor från **Eurobike, Radweg-Reisen och Velociped** får **Hjälm: Erbjuds inte**. Det gäller vid import och när leverantören redan är sparad, och när version 1.3.0 installeras. Därefter går hjälmvalet att ändra för enskilda resor.
+
+På **S-Capes resor i Frankrike** ingår hjälmen (**Hjälm: Ingår**). De känns igen på reskoden (`FRSB…`) eller på leverantören S-Cape tillsammans med en reskod som börjar med `FR`. Det gäller på samma sätt som ovan.
 
 Kolumnen **Kommentar** är dold tills vidare. Kommentarer som redan finns sparas och följer med i CSV-exporten.
 

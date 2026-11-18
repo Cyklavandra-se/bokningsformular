@@ -28,7 +28,7 @@ $GLOBALS['opts']['cvb_settings'] = array(
 CV_Bokningsval::migrate();
 ok( 1 === $GLOBALS['opts']['cvb_settings']['AT-1']['sportig'], 'sparad Eurobike-resa får sportig' );
 ok( 0 === $GLOBALS['opts']['cvb_settings']['XYZ']['sportig'], 'annan sparad resa ändras inte' );
-ok( 3 === $GLOBALS['opts']['cvb_schema'], 'engångsändringen är markerad som gjord' );
+ok( 4 === $GLOBALS['opts']['cvb_schema'], 'engångsändringen är markerad som gjord' );
 ok( 'nej' === $GLOBALS['opts']['cvb_settings']['AT-1']['hjalm'], 'sparad Eurofun-resa får Hjälm erbjuds inte' );
 ok( ! isset( $GLOBALS['opts']['cvb_settings']['XYZ']['hjalm'] ), 'annan sparad resa får inget nytt hjälmval' );
 $GLOBALS['opts']['cvb_settings']['AT-1']['sportig'] = 0;
@@ -50,6 +50,21 @@ ok( CV_Bokningsval::supplier_without_helmet( 'Radweg Reisen' ), 'Radweg Reisen (
 ok( CV_Bokningsval::supplier_without_helmet( 'VELOCIPED' ), 'Velociped hyr inte ut hjälm' );
 ok( ! CV_Bokningsval::supplier_without_helmet( 'S-Cape' ), 'S-Cape hyr ut hjälm' );
 ok( 'nej' === CV_Bokningsval::settings_for( 'DE-NY', 0 )['hjalm'], 'ny Eurofun-resa har Hjälm erbjuds inte som standard' );
+
+echo "\n--- S-Cape i Frankrike ---\n";
+ok( CV_Bokningsval::is_scape_france( 'FRSB145' ), 'FRSB145 är S-Cape Frankrike' );
+ok( CV_Bokningsval::is_scape_france( 'FR-ANNAN', 'S-Cape' ), 'FR-kod med leverantören S-Cape' );
+ok( ! CV_Bokningsval::is_scape_france( 'FR-ANNAN', 'Walk Inn' ), 'FR-kod från annan leverantör' );
+ok( ! CV_Bokningsval::is_scape_france( 'ITSB290', 'S-Cape' ), 'S-Cape i Italien' );
+ok( 'ingar' === CV_Bokningsval::settings_for( 'FRSB660', 0 )['hjalm'], 'ny S-Cape-resa i Frankrike har Hjälm ingår' );
+ok( 'hyra' === CV_Bokningsval::settings_for( 'ITSB290', 0 )['hjalm'], 'S-Cape i Italien har fortfarande hyrhjälm' );
+$GLOBALS['opts'] = array( 'cvb_schema' => 3, 'cvb_settings' => array(
+	'FRSB191' => array( 'typ' => 'cykel', 'hjalm' => 'hyra' ),
+	'AT-X'    => array( 'typ' => 'cykel', 'hjalm' => 'hyra' ),
+) );
+CV_Bokningsval::migrate();
+ok( 'ingar' === $GLOBALS['opts']['cvb_settings']['FRSB191']['hjalm'], 'från version 3: sparad S-Cape-resa i Frankrike får Hjälm ingår' );
+ok( 'hyra' === $GLOBALS['opts']['cvb_settings']['AT-X']['hjalm'], 'från version 3: Eurofun-regeln körs inte igen' );
 
 echo "\n--- Import med kolumnen Kollad ---\n";
 $GLOBALS['opts'] = array();

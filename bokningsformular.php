@@ -100,12 +100,36 @@ final class CV_Bokningsval {
 		return in_array( self::norm( $supplier ), self::NO_HELMET_SUPPLIERS, true );
 	}
 
+	/**
+	 * S-Capes resor i Frankrike har hjälm som ingår. Deras franska reskoder
+	 * börjar med FRSB (cykel) eller FRSW (vandring), t.ex. FRSB145.
+	 */
+	public static function is_scape_france( $code, $supplier = '' ) {
+		$code = strtoupper( (string) $code );
+		return (bool) preg_match( '/^FRS[BW]/', $code )
+			|| ( 'scape' === self::norm( $supplier ) && 0 === strpos( $code, 'FR' ) );
+	}
+
+	/**
+	 * Hjälmvalet som leverantören bestämmer, eller '' om det är fritt.
+	 * S-Cape i Frankrike: ingår. Eurobike, Radweg-Reisen och Velociped: erbjuds inte.
+	 */
+	public static function helmet_rule( $code, $supplier = '' ) {
+		if ( self::is_scape_france( $code, $supplier ) ) {
+			return 'ingar';
+		}
+		if ( self::is_eurofun( $code ) || self::supplier_without_helmet( $supplier ) ) {
+			return 'nej';
+		}
+		return '';
+	}
+
 	/** Standardläge för resor som inte är ifyllda. */
 	public static function defaults( $code = '' ) {
 		return array(
 			'typ'       => '',
 			'leverantor' => '',
-			'hjalm'     => self::is_eurofun( $code ) ? 'nej' : 'hyra',
+			'hjalm'     => self::helmet_rule( $code ) ? self::helmet_rule( $code ) : 'hyra',
 			'vanlig'    => 1,
 			'el'        => 1,
 			'sportig'   => self::is_eurofun( $code ) ? 1 : 0,
@@ -162,10 +186,11 @@ final class CV_Bokningsval {
 	 * Engångsändringar av sparade inställningar.
 	 * 2: Alla Eurofun-resor får sportig cykel.
 	 * 3: Eurofun-resor och resor från Eurobike, Radweg-Reisen och Velociped får "Hjälm erbjuds inte".
+	 * 4: S-Capes resor i Frankrike får "Hjälm ingår".
 	 */
 	public static function migrate() {
 		$version = (int) get_option( 'cvb_schema', 1 );
-		if ( $version >= 3 ) {
+		if ( $version >= 4 ) {
 			return;
 		}
 		$all = self::all_settings();
@@ -177,12 +202,13 @@ final class CV_Bokningsval {
 				$all[ $code ]['sportig'] = 1;
 			}
 			$supplier = isset( $row['leverantor'] ) ? $row['leverantor'] : '';
-			if ( self::is_eurofun( $code ) || self::supplier_without_helmet( $supplier ) ) {
-				$all[ $code ]['hjalm'] = 'nej';
+			$rule     = self::helmet_rule( $code, $supplier );
+			if ( ( 'nej' === $rule && $version < 3 ) || 'ingar' === $rule ) {
+				$all[ $code ]['hjalm'] = $rule;
 			}
 		}
 		update_option( self::OPTION, $all, false );
-		update_option( 'cvb_schema', 3 );
+		update_option( 'cvb_schema', 4 );
 	}
 
 	public static function sanitize_row( $row ) {
@@ -538,17 +564,16 @@ final class CV_Bokningsval {
 			<p>
 				Varje rad är en reskod som finns i en kortkod på sajten. Nya resor dyker upp här automatiskt.
 				Typen gissas utifrån adressen (<code>/vandra/</code> = vandring). På vandringsresor visas inte längd, cykel och hjälm.
-				Cykelresor som inte är markerade som <strong>Kollad</strong> visas i gult och använder standardläget
+				Cykelresor som inte är markerade som <strong>Klar</strong> visas i gult och använder standardläget
 				(vanlig cykel + elcykel, hyrhjälm, egen cykel tillåten, inga försäkringar) tills ni sparar dem.
 				Resor från Eurobike, Radweg-Reisen och Velociped (reskoder som börjar med landskod och bindestreck, t.ex. <code>DE-</code>)
-				har sportig cykel och ingen hjälmhyra.
+				har sportig cykel och ingen hjälmhyra. På S-Capes resor i Frankrike (<code>FRSB…</code>) ingår hjälmen.
 			</p>
 			<p>
 				<strong><?php echo esc_html( count( $tours ) ); ?></strong> resor,
-				<strong><?php echo esc_html( $not_done ); ?></strong> cykelresor ej kollade.
+				<strong><?php echo esc_html( $not_done ); ?></strong> cykelresor ej klara.
 			</p>
 			<p class="cvb-filter">
-				<input type="search" id="cvb-search" placeholder="Sök resa, reskod eller leverantör…" style="min-width:260px">
 				<label>Typ:
 					<select id="cvb-filter-typ">
 						<option value="cykel" selected>Cykel</option>
@@ -556,7 +581,8 @@ final class CV_Bokningsval {
 						<option value="">Alla</option>
 					</select>
 				</label>
-				<label><input type="checkbox" id="cvb-only-todo"> Visa bara ej kollade</label>
+				<input type="search" id="cvb-search" placeholder="Sök resa, reskod eller leverantör…" style="min-width:260px">
+				<label><input type="checkbox" id="cvb-only-todo"> Visa bara ej klara</label>
 				<span id="cvb-shown" class="cvb-shown"></span>
 			</p>
 
@@ -575,7 +601,7 @@ final class CV_Bokningsval {
 								<th class="cvb-c"><?php echo esc_html( $label ); ?></th>
 							<?php endforeach; ?>
 							<?php if ( self::SHOW_COMMENT ) : ?><th>Kommentar</th><?php endif; ?>
-							<th class="cvb-c">Kollad</th>
+							<th class="cvb-c">Klar</th>
 						</tr>
 					</thead>
 					<tbody>
@@ -587,7 +613,8 @@ final class CV_Bokningsval {
 						?>
 						<tr class="<?php echo esc_attr( $cls ); ?>" data-typ="<?php echo esc_attr( $s['typ'] ); ?>" data-search="<?php echo esc_attr( strtolower( $tour['title'] . ' ' . $code . ' ' . $s['leverantor'] ) ); ?>">
 							<td>
-								<a href="<?php echo esc_url( get_edit_post_link( $tour['id'] ) ); ?>"><?php echo esc_html( $tour['title'] ); ?></a>
+								<a href="<?php echo esc_url( get_edit_post_link( $tour['id'] ) ); ?>" title="Redigera sidan"><?php echo esc_html( $tour['title'] ); ?></a>
+								<a href="<?php echo esc_url( get_permalink( $tour['id'] ) ); ?>" class="cvb-view" target="_blank" rel="noopener" title="Visa resans sida" aria-label="Visa resans sida (öppnas i ny flik)">&#8599;</a>
 								<?php if ( 'publish' !== $tour['status'] ) : ?>
 									<em>(<?php echo esc_html( $tour['status'] ); ?>)</em>
 								<?php endif; ?>
@@ -622,7 +649,7 @@ final class CV_Bokningsval {
 							<?php if ( self::SHOW_COMMENT ) : ?>
 								<td><input type="text" name="<?php echo $n; ?>[kommentar]" value="<?php echo esc_attr( $s['kommentar'] ); ?>" class="regular-text" style="width:100%"></td>
 							<?php endif; ?>
-							<td class="cvb-c"><input type="checkbox" name="<?php echo $n; ?>[klar]" value="1" <?php checked( $done ); ?> aria-label="Kollad"></td>
+							<td class="cvb-c"><input type="checkbox" name="<?php echo $n; ?>[klar]" value="1" <?php checked( $done ); ?> aria-label="Klar"></td>
 						</tr>
 					<?php endforeach; ?>
 					</tbody>
@@ -648,7 +675,7 @@ final class CV_Bokningsval {
 				<input type="hidden" name="action" value="cvb_import">
 				<p>
 					CSV med <code>Reskod</code> (eller <code>Tripcode</code>), <code>Webbsida</code> (eller <code>Vår hemsida</code>) eller <code>Resa</code>,
-					och någon av kolumnerna <code>Leverantör, Hjälm, Vanlig cykel, Elcykel, Sportig cykel, Egen cykel, Stöldförsäkring, Assistansförsäkring, Kollad</code>.
+					och någon av kolumnerna <code>Leverantör, Hjälm, Vanlig cykel, Elcykel, Sportig cykel, Egen cykel, Stöldförsäkring, Assistansförsäkring, Klar</code>.
 					Bara kolumnerna som finns i filen ändras, så det går att läsa in flikarna BIKE och HIKE i Booking Codes direkt för att fylla i leverantörerna.
 				</p>
 				<input type="file" name="cvb_csv" accept=".csv,text/csv" required>
@@ -668,6 +695,7 @@ final class CV_Bokningsval {
 			.cvb-shown { color:#646970; }
 			.cvb-table .cvb-supplier { width: 11em; }
 			.cvb-table code { white-space: nowrap; }
+			.cvb-view { margin-left:4px; text-decoration:none; font-size:15px; }
 		</style>
 		<script>
 		( function () {
@@ -927,11 +955,12 @@ final class CV_Bokningsval {
 			if ( self::is_eurofun( $code ) ) {
 				$row['sportig'] = 1;
 			}
-			if ( self::is_eurofun( $code ) || self::supplier_without_helmet( $row['leverantor'] ) ) {
-				$row['hjalm'] = 'nej';
+			$rule = self::helmet_rule( $code, $row['leverantor'] );
+			if ( '' !== $rule ) {
+				$row['hjalm'] = $rule;
 			}
 
-			// Kollad om kolumnen Kollad (eller Klar) säger det, annars om hjälmvalet är ifyllt.
+			// Klar om kolumnen Klar (eller Kollad) säger det, annars om hjälmvalet är ifyllt.
 			if ( $has( 'klar' ) ) {
 				$row['klar'] = self::truthy( $get( 'klar' ) );
 			} elseif ( '' !== $helmet ) {
@@ -964,7 +993,7 @@ final class CV_Bokningsval {
 		$out = fopen( 'php://output', 'w' ); // phpcs:ignore WordPress.WP.AlternativeFunctions
 		fwrite( $out, "\xEF\xBB\xBF" ); // phpcs:ignore WordPress.WP.AlternativeFunctions
 		$types   = self::type_choices();
-		fputcsv( $out, array( 'Resa', 'Typ', 'Reskod', 'Leverantör', 'Hjälm', 'Vanlig cykel', 'Elcykel', 'Sportig cykel', 'Egen cykel', 'Stöldförsäkring', 'Assistansförsäkring', 'Kommentar', 'Kollad' ) );
+		fputcsv( $out, array( 'Resa', 'Typ', 'Reskod', 'Leverantör', 'Hjälm', 'Vanlig cykel', 'Elcykel', 'Sportig cykel', 'Egen cykel', 'Stöldförsäkring', 'Assistansförsäkring', 'Kommentar', 'Klar' ) );
 		foreach ( $tours as $code => $t ) {
 			$s = self::settings_for( $code, $t['id'] );
 			fputcsv(
