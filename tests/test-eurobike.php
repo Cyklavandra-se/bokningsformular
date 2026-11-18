@@ -149,6 +149,19 @@ ok( array( '<span data-sheets-root=' => array( 'cdee672' ) ) === CV_Bokningsval:
 $b64 = base64_encode( '[contact-form-7 id="ca124e5" title="Ny" tripcode="Kattegattleden 4 nätter"]' );
 ok( array( 'Kattegattleden 4 nätter' => array( 'ca124e5' ) ) === CV_Bokningsval::extract_form_ids( "[fusion_code]{$b64}[/fusion_code]" ), 'formulär-id i Avadas kodblock' );
 
+echo "\n--- Hjälm (gratis) ---\n";
+$GLOBALS['opts'] = array( 'cvb_settings' => array( 'FRSB191' => array( 'typ' => 'cykel', 'hjalm' => 'ingar' ) ) );
+WPCF7_ContactForm::$attr = 'FRSB191';
+$old = mk( 'select*', 'hjalm-1', array( 'Hyr hjälm', 'Tar med egen', 'Hjälm ingår' ) );
+$res = CV_Bokningsval::filter_form_tag( $old );
+ok( array( 'Hjälm (gratis)', 'Tar med egen' ) === $res->labels, 'gammal text visas som Hjälm (gratis): ' . implode( '/', $res->labels ) );
+ok( array( 'Hjälm ingår', 'Tar med egen' ) === $res->values, 'värdet i mailet är oförändrat' );
+$new = CV_Bokningsval::filter_form_tag( mk( 'select*', 'hjalm-1', array( 'Hyr hjälm', 'Tar med egen', 'Hjälm (gratis)' ) ) );
+ok( array( 'Hjälm (gratis)', 'Tar med egen' ) === $new->labels, 'ny text oförändrad' );
+$no = CV_Bokningsval::filter_form_tag( mk( 'select*', 'hjalm-1', array( 'Leie hjelm', 'Tar med egen', 'Hjelm inkludert' ) ) );
+ok( array( 'Hjelm inkludert', 'Tar med egen' ) === $no->labels, 'norsk text rörs inte' );
+WPCF7_ContactForm::$attr = '';
+
 echo "\n--- Felaktiga reskoder ---\n";
 ok( '' !== CV_Bokningsval::code_problem( '<span data-sheets-root=' ), 'HTML från Google Sheets upptäcks' );
 ok( '' !== CV_Bokningsval::code_problem( 'Mon May 11 2026 00:00:00 GMT+0200 (Central European Summer Time)' ), 'datum upptäcks' );

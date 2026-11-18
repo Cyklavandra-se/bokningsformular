@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Cykla & Vandra – Bokningsformulär
  * Description: Ett bokningsformulär (Contact Form 7) för både cykel- och vandringsresor. Styr vilka cykeltyper, hjälmval och försäkringar som visas för varje resa, utifrån reskoden (tripcode) i kortkoden.
- * Version: 1.6.2
+ * Version: 1.6.3
  * Author: Cykla & Vandra
  * Requires at least: 6.0
  * Requires PHP: 7.4
@@ -374,7 +374,7 @@ final class CV_Bokningsval {
 
 		if ( $is_helmet ) {
 			$keep = isset( self::HELMET_INDEX[ $s['hjalm'] ] ) ? self::HELMET_INDEX[ $s['hjalm'] ] : self::HELMET_INDEX['hyra'];
-			return self::reduce_options( $tag, $keep );
+			return self::rename_old_helmet_label( self::reduce_options( $tag, $keep ) );
 		}
 
 		// Försäkringar: gör fältet frivilligt när resan saknar försäkringen,
@@ -388,6 +388,20 @@ final class CV_Bokningsval {
 	}
 
 	/** Behåller bara alternativen på de angivna platserna (0-baserade). */
+	/**
+	 * Formulär med den äldre texten "Hjälm ingår" visar "Hjälm (gratis)" för kunden
+	 * (Pär, 2026-11-18). Bara etiketten ändras; värdet i mailet är detsamma som i formuläret.
+	 */
+	public static function rename_old_helmet_label( $tag ) {
+		$labels = (array) self::tag_get( $tag, 'labels' );
+		foreach ( $labels as $i => $label ) {
+			if ( 'Hjälm ingår' === trim( (string) $label ) ) {
+				$labels[ $i ] = 'Hjälm (gratis)';
+			}
+		}
+		return self::tag_set( $tag, 'labels', $labels );
+	}
+
 	public static function reduce_options( $tag, $keep ) {
 		$raw    = (array) self::tag_get( $tag, 'raw_values' );
 		$values = (array) self::tag_get( $tag, 'values' );
@@ -670,6 +684,7 @@ final class CV_Bokningsval {
 				'lang'         => $lang,
 				'shortcode'    => preg_replace( '/\]$/', ' tripcode="RESKOD"]', $form->shortcode() ),
 				'new_template' => false !== strpos( $body, 'cvb-cykel' ),
+				'old_helmet'   => false !== strpos( $body, '"Hjälm ingår"' ),
 			);
 		}
 		// Formulär med den nya mallen först.
@@ -700,6 +715,7 @@ final class CV_Bokningsval {
 				$main['langs'] = array();
 			}
 			$main['ids']     = array_values( array_unique( array_merge( $main['ids'], $f['ids'] ) ) );
+			$main['old_helmet'] = ! empty( $main['old_helmet'] ) || ! empty( $f['old_helmet'] );
 			$main['langs'][] = $f['lang'];
 		}
 		if ( $main ) {
@@ -730,6 +746,9 @@ final class CV_Bokningsval {
 					Resor vars sida använder ett annat formulär är markerade med <span class="cvb-badge cvb-oldform">Annat formulär</span>.
 					Nya resor dyker upp i tabellen så fort sidan är sparad, även som utkast.
 				</p>
+				<?php if ( ! empty( $official['old_helmet'] ) ) : ?>
+					<p class="cvb-old">Formuläret har fortfarande texten <code>"Hjälm ingår"</code>. Kunderna ser ändå "Hjälm (gratis)", men byt gärna texten till <code>"Hjälm (gratis)"</code> på alla 8 ställen under fliken Formulär, så att även mailet säger samma sak.</p>
+				<?php endif; ?>
 				<?php if ( count( $official['langs'] ) < 2 && $old ) : ?>
 					<p class="cvb-old">Formuläret finns bara på <?php echo esc_html( $official['langs'] ? implode( ', ', $official['langs'] ) : 'ett språk' ); ?>. Översätt det i WPML så att de norska sidorna får ett norskt formulär.</p>
 				<?php endif; ?>
