@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Cykla & Vandra – Bokningsformulär
  * Description: Ett bokningsformulär (Contact Form 7) för både cykel- och vandringsresor. Styr vilka cykeltyper, hjälmval och försäkringar som visas för varje resa, utifrån reskoden (tripcode) i kortkoden.
- * Version: 1.12.0
+ * Version: 1.12.1
  * Author: Cykla & Vandra
  * Requires at least: 6.0
  * Requires PHP: 7.4
@@ -1152,9 +1152,13 @@ final class CV_Bokningsval {
 					<?php if ( $official['langs'] ) : ?><span class="cvb-langs"><?php echo esc_html( implode( ' · ', $official['langs'] ) ); ?></span><?php endif; ?>
 				</h2>
 				<p>
-					Kopiera kortkoden för en resa med knappen <strong>Kopiera</strong> längst till höger i tabellen, och klistra in den på resans sida.
-					Resor vars sida använder ett annat formulär är markerade med <span class="cvb-badge cvb-oldform">Annat formulär</span>.
+					Klistra in kortkoden på resans sida och byt <code>RESKOD</code> mot resans reskod.
+					Resor vars sida använder ett annat formulär är gula och markerade med <span class="cvb-badge cvb-oldform">Annat formulär</span>.
 					Nya resor dyker upp i tabellen så fort sidan är sparad, även som utkast.
+				</p>
+				<p class="cvb-shortcode-row">
+					<input type="text" readonly value="<?php echo esc_attr( $official['shortcode'] ); ?>" class="cvb-copy-src code" onfocus="this.select()">
+					<button type="button" class="button cvb-copy">Kopiera</button>
 				</p>
 				<?php if ( ! empty( $official['old_helmet'] ) ) : ?>
 					<p class="cvb-old">Formuläret har fortfarande texten <code>"Hjälm ingår"</code>. Kunderna ser ändå "Hjälm (gratis)", men byt gärna texten till <code>"Hjälm (gratis)"</code> på alla 8 ställen under fliken Formulär, så att även mailet säger samma sak.</p>
@@ -1316,11 +1320,11 @@ final class CV_Bokningsval {
 							<?php endforeach; ?>
 							<?php if ( self::SHOW_COMMENT ) : ?><th>Kommentar</th><?php endif; ?>
 							<th>Hjälm</th>
-							<?php if ( $official ) : ?><th class="cvb-c">Kortkod</th><?php endif; ?>
+							<th class="cvb-c cvb-status-col"><span class="screen-reader-text">Sparat</span></th>
 						</tr>
 					</thead>
 					<?php
-					$columns = 4 + count( $fields ) + ( self::SHOW_COMMENT ? 1 : 0 ) + ( $official ? 1 : 0 );
+					$columns = 5 + count( $fields ) + ( self::SHOW_COMMENT ? 1 : 0 );
 					$groups  = array(
 						'published' => array_filter( $tours, function ( $t ) { return ! empty( $t['published'] ); } ),
 						'drafts'    => array_filter( $tours, function ( $t ) { return empty( $t['published'] ); } ),
@@ -1363,7 +1367,6 @@ final class CV_Bokningsval {
 							<td>
 								<a href="<?php echo esc_url( get_edit_post_link( $tour['id'] ) ); ?>" title="Redigera sidan"><?php echo esc_html( $tour['title'] ); ?></a>
 								<a href="<?php echo esc_url( get_permalink( $tour['id'] ) ); ?>" class="cvb-view" target="_blank" rel="noopener" title="Visa resans sida" aria-label="Visa resans sida (öppnas i ny flik)">&#8599;</a>
-								<span class="cvb-save-status" aria-live="polite"></span>
 								<?php if ( 'publish' !== $tour['status'] ) : ?>
 									<em class="cvb-status">(<?php echo esc_html( self::status_label( $tour['status'] ) ); ?>)</em>
 								<?php endif; ?>
@@ -1406,15 +1409,7 @@ final class CV_Bokningsval {
 									<?php endforeach; ?>
 								</select>
 							</td>
-							<?php if ( $official ) : ?>
-								<td class="cvb-c">
-									<?php if ( self::code_problem( $code ) ) : ?>
-										<button type="button" class="button button-small" disabled title="Rätta reskoden på sidan först">Kopiera</button>
-									<?php else : ?>
-										<button type="button" class="button button-small cvb-copy" data-copy="<?php echo esc_attr( self::shortcode_for( $code, $official ) ); ?>" title="<?php echo esc_attr( self::shortcode_for( $code, $official ) ); ?>">Kopiera</button>
-									<?php endif; ?>
-								</td>
-							<?php endif; ?>
+							<td class="cvb-c cvb-status-col"><span class="cvb-save-status" aria-live="polite"></span></td>
 						</tr>
 					<?php endforeach; ?>
 					</tbody>
@@ -1476,7 +1471,10 @@ final class CV_Bokningsval {
 			.cvb-swap-one { margin-left:4px; font-size:12px; }
 			.cvb-badge[hidden] { display:none; }
 			.cvb-save-status { display:inline-block; width:1em; margin-left:4px; font-weight:700; }
-			.cvb-save-status:empty { display:none; }
+			.cvb-table .cvb-status-col { width:1.5em; padding-left:0; padding-right:0; }
+			.cvb-save-status { font-size:16px; }
+			.cvb-shortcode-row { display:flex; gap:8px; align-items:center; }
+			.cvb-shortcode-row input { width:min(620px, 70vw); }
 			.cvb-save-saving { color:#646970; }
 			.cvb-save-ok { color:#00a32a; }
 			.cvb-save-err { color:#d63638; cursor:help; }
@@ -1535,7 +1533,7 @@ final class CV_Bokningsval {
 			// Kopiera kortkod eller mall.
 			document.querySelectorAll( '.cvb-copy' ).forEach( function ( btn ) {
 				btn.addEventListener( 'click', function () {
-					var src = btn.dataset.copy ? { value: btn.dataset.copy, select: function () {} } : btn.closest( 'tr, details' ).querySelector( '.cvb-copy-src' );
+					var src = btn.dataset.copy ? { value: btn.dataset.copy, select: function () {} } : btn.closest( '.cvb-shortcode-row, tr, details' ).querySelector( '.cvb-copy-src' );
 					var done = function () {
 						var old = btn.textContent;
 						btn.textContent = 'Kopierat!';
