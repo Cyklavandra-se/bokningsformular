@@ -144,5 +144,65 @@ ok( '' === ob_get_clean(), 'ingen påminnelse när allt stämmer' );
 
 ok( empty( $GLOBALS['get_instance_calls'] ), 'påminnelsen anropar inte WPCF7_ContactForm::get_instance()' );
 
+echo "\n--- Byta formulär på sidorna ---\n";
+$off = array(
+	'ids'       => array( '36488', 'ca124e5', '36490' ),
+	'title'     => 'Bokningsformulär självguidade v1.0',
+	'shortcode' => '[contact-form-7 id="ca124e5" title="Bokningsformulär självguidade v1.0" tripcode="RESKOD"]',
+);
+list( $c, $n ) = CV_Bokningsval::swap_forms_in_content( '<p>Intro</p>[contact-form-7 id="cdee672" title="Självguidad cykling Active Spain Holland" tripcode="Trip 07-06"]<p>Slut</p>', $off );
+ok( '<p>Intro</p>[contact-form-7 id="ca124e5" title="Bokningsformulär självguidade v1.0" tripcode="Trip 07-06"]<p>Slut</p>' === $c && 1 === $n, 'vanlig kortkod byts: ' . $c );
+list( $c, $n ) = CV_Bokningsval::swap_forms_in_content( '[contact-form-7 id="ca124e5" title="Bokningsformulär självguidade v1.0" tripcode="DE-X"]', $off );
+ok( 0 === $n, 'redan rätt formulär rörs inte' );
+list( $c, $n ) = CV_Bokningsval::swap_forms_in_content( '[contact-form-7 id=&quot;2b3b45c&quot; title=&quot;Självguidad cykling EuroFun EJ HJÄLM&quot; tripcode=&quot;DE-MORTK-04A&quot;]', $off );
+ok( '[contact-form-7 id=&quot;ca124e5&quot; title=&quot;Bokningsformulär självguidade v1.0&quot; tripcode=&quot;DE-MORTK-04A&quot;]' === $c, 'kortkod med &quot; byts: ' . $c );
+list( $c, $n ) = CV_Bokningsval::swap_forms_in_content( '[contact-form-7 id="5a8fea7" tripcode="FRSB145"]', $off );
+ok( '[contact-form-7 id="ca124e5" tripcode="FRSB145"]' === $c, 'kortkod utan titel: bara id byts' );
+$broken = '[contact-form-7 id="cdee672" title="Holland" tripcode="<span data-sheets-root="1">Trip 07-06</span>"]';
+list( $c, $n ) = CV_Bokningsval::swap_forms_in_content( $broken, $off );
+ok( $broken === $c && 0 === $n, 'felaktig reskod hoppas över' );
+$other = '[contact-form-7 id="999" title="Nyhetsbrev"] och [contact-form-7 id="5a8fea7" title="Gammalt" tripcode="ITSB290"]';
+list( $c, $n ) = CV_Bokningsval::swap_forms_in_content( $other, $off );
+ok( '[contact-form-7 id="999" title="Nyhetsbrev"] och [contact-form-7 id="ca124e5" title="Bokningsformulär självguidade v1.0" tripcode="ITSB290"]' === $c, 'formulär utan tripcode rörs inte: ' . $c );
+$b64 = base64_encode( '<div>[contact-form-7 id="a96eb3d" title="Självguidad cykling HYRA HJÄLM" tripcode="Kattegattleden 4 nätter"]</div>' );
+list( $c, $n ) = CV_Bokningsval::swap_forms_in_content( "före [fusion_code]{$b64}[/fusion_code] efter", $off );
+preg_match( '#\[fusion_code\](.*?)\[/fusion_code\]#', $c, $mm );
+ok( 1 === $n && '<div>[contact-form-7 id="ca124e5" title="Bokningsformulär självguidade v1.0" tripcode="Kattegattleden 4 nätter"]</div>' === base64_decode( $mm[1] ) && 0 === strpos( $c, 'före [fusion_code]' ) && ' efter' === substr( $c, -6 ), 'Avadas kodblock byts och kodas igen' );
+list( $c, $n ) = CV_Bokningsval::swap_forms_in_content( '[contact-form-7 id="a" tripcode="X-1"][contact-form-7 id="b" tripcode="X-2"]', $off );
+ok( 2 === $n, 'flera kortkoder på samma sida' );
+
+echo "\n--- Knappen Byt formulär ---\n";
+class Redirected extends Exception {}
+function check_admin_referer( $a ) { return true; }
+function wp_slash( $v ) { return $v; }
+function get_current_user_id() { return 1; }
+function set_transient( $k, $v, $t ) { $GLOBALS['transients'][ $k ] = $v; }
+function wp_safe_redirect( $u ) { throw new Redirected( $u ); }
+function wp_update_post( $a, $e ) { $GLOBALS['updated'][ $a['ID'] ] = $a['post_content']; foreach ( $GLOBALS['posts'] as $p ) { if ( $p->ID === $a['ID'] ) { $p->post_content = $a['post_content']; } } return $a['ID']; }
+$GLOBALS['posts'] = array(
+	(object) array( 'ID' => 10, 'post_title' => 'Hollands pärlor', 'post_type' => 'page', 'post_status' => 'publish', 'post_content' => '[contact-form-7 id="cdee672" title="Holland" tripcode="Trip 07-06"]' ),
+	(object) array( 'ID' => 11, 'post_title' => 'Hollands pärlor NO', 'post_type' => 'page', 'post_status' => 'publish', 'post_content' => '[contact-form-7 id="cdee672" title="Holland NO" tripcode="Trip 07-06"]' ),
+	(object) array( 'ID' => 12, 'post_title' => 'Mosel', 'post_type' => 'page', 'post_status' => 'publish', 'post_content' => '[contact-form-7 id="2b3b45c" title="EuroFun" tripcode="DE-MORWT-06"]' ),
+	(object) array( 'ID' => 13, 'post_title' => 'Trasig', 'post_type' => 'page', 'post_status' => 'publish', 'post_content' => '[contact-form-7 id="2b3b45c" tripcode="<span data-sheets-root="1">X</span>"]' ),
+	(object) array( 'ID' => 14, 'post_title' => 'Redan klar', 'post_type' => 'page', 'post_status' => 'publish', 'post_content' => '[contact-form-7 id="ca124e5" title="Bokningsformulär självguidade v1.0" tripcode="ITSB290"]' ),
+);
+$GLOBALS['cf7_posts'][36488]['_hash'] = 'ca124e5aaaa';
+$GLOBALS['cf7_posts'][36490]['_form'] = $sv;
+// En resa i taget.
+$GLOBALS['updated'] = array();
+$_POST              = array( 'codes' => array( 'DE-MORWT-06' ) );
+try { CV_Bokningsval::handle_swap_forms(); } catch ( Redirected $e ) {}
+ok( array( 12 ) === array_keys( $GLOBALS['updated'] ), 'Byt på en resa ändrar bara den resans sida' );
+ok( false !== strpos( $GLOBALS['updated'][12], 'id="ca124e5"' ) && false !== strpos( $GLOBALS['updated'][12], 'tripcode="DE-MORWT-06"' ), 'sidan har nya formuläret och samma reskod' );
+// Alla.
+$GLOBALS['updated'] = array();
+$_POST              = array( 'all' => '1' );
+try { CV_Bokningsval::handle_swap_forms(); } catch ( Redirected $e ) {}
+ok( array( 10, 11 ) === array_keys( $GLOBALS['updated'] ), 'Byt alla: båda språken av Holland, inte den trasiga eller den som redan är klar' );
+$msg = $GLOBALS['transients']['cvb_notice_1']['message'] ?? '';
+ok( false !== strpos( $msg, 'på 2 sidor (1 resa)' ), 'meddelandet räknar sidor och resor: ' . strip_tags( $msg ) );
+$_POST = array();
+
+
 echo $fel ? "\n$fel FEL\n" : "\nAlla OK\n";
 exit( $fel ? 1 : 0 );

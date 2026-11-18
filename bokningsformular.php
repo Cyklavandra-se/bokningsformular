@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Cykla & Vandra – Bokningsformulär
  * Description: Ett bokningsformulär (Contact Form 7) för både cykel- och vandringsresor. Styr vilka cykeltyper, hjälmval och försäkringar som visas för varje resa, utifrån reskoden (tripcode) i kortkoden.
- * Version: 1.8.1
+ * Version: 1.9.0
  * Author: Cykla & Vandra
  * Requires at least: 6.0
  * Requires PHP: 7.4
@@ -183,6 +183,7 @@ final class CV_Bokningsval {
 			add_action( 'admin_post_cvb_save', array( __CLASS__, 'handle_save' ) );
 			add_action( 'admin_post_cvb_import', array( __CLASS__, 'handle_import' ) );
 			add_action( 'admin_post_cvb_export', array( __CLASS__, 'handle_export' ) );
+			add_action( 'admin_post_cvb_swap_forms', array( __CLASS__, 'handle_swap_forms' ) );
 		}
 	}
 
@@ -672,6 +673,7 @@ final class CV_Bokningsval {
 				'langs'  => $langs,
 				'forms'  => array_values( array_unique( $tour['forms'] ) ),
 				'count'  => count( $posts ),
+				'post_ids' => array_values( array_unique( wp_list_pluck( $posts, 'id' ) ) ),
 			);
 		}
 
@@ -817,6 +819,135 @@ final class CV_Bokningsval {
 	 *
 	 * @return array|null array( 'title', 'shortcode', 'ids', 'langs' )
 	 */
+	/** Id och titel i det officiella formulärets kortkod, t.ex. array( 'ca124e5', 'Bokningsformulär självguidade v1.0' ). */
+	public static function official_shortcode_parts( $official ) {
+		$id    = preg_match( '/\bid="([^"]+)"/', (string) $official['shortcode'], $m ) ? $m[1] : '';
+		$title = preg_match( '/\btitle="([^"]*)"/', (string) $official['shortcode'], $m ) ? $m[1] : '';
+		return array( $id, $title );
+	}
+
+	/**
+	 * Byter formulär i sidans innehåll: i varje kortkod med tripcode som använder ett
+	 * annat formulär än det officiella byts id och titel. Reskoden och resten av sidan
+	 * lämnas orörda. Avadas base64-kodade kodblock hanteras. Kortkoder med felaktig
+	 * reskod hoppas över.
+	 *
+	 * @return array( nytt innehåll, antal bytta kortkoder )
+	 */
+	public static function swap_forms_in_content( $content, $official ) {
+		list( $new_id, $new_title ) = self::official_shortcode_parts( $official );
+		$count = 0;
+		if ( '' === $new_id ) {
+			return array( $content, 0 );
+		}
+		$swap = function ( $text ) use ( $official, $new_id, $new_title, &$count ) {
+			return preg_replace_callback(
+				'/\[contact-form-7\b[^\[\]]*?tripcode[^\[]*?\]/s',
+				function ( $m ) use ( $official, $new_id, $new_title, &$count ) {
+					$sc = $m[0];
+					if ( ! preg_match( '/\bid\s*=\s*(?:&quot;|["\'\x{201C}\x{201D}])?([A-Za-z0-9]+)/u', $sc, $idm ) ) {
+						return $sc;
+					}
+					if ( in_array( $idm[1], $official['ids'], true ) ) {
+						return $sc; // Redan rätt formulär.
+					}
+					foreach ( self::extract_codes( $sc ) as $code ) {
+						if ( self::code_problem( $code ) ) {
+							return $sc; // Rätta reskoden först.
+						}
+					}
+					$sc = preg_replace( '/(\bid\s*=\s*(?:&quot;|["\'\x{201C}\x{201D}])?)[A-Za-z0-9]+/u', '${1}' . $new_id, $sc, 1 );
+					$sc = preg_replace_callback(
+						'/(\btitle\s*=\s*)(&quot;|"|\')(.*?)\2/u',
+						function ( $t ) use ( $new_title ) {
+							return $t[1] . $t[2] . $new_title . $t[2];
+						},
+						$sc,
+						1
+					);
+					$count++;
+					return $sc;
+				},
+				$text
+			);
+		};
+		// Avadas kodblock: avkoda, byt och koda igen.
+		$content = preg_replace_callback(
+			'#(\[fusion_code[^\]]*\])(.*?)(\[/fusion_code\])#s',
+			function ( $m ) use ( $swap ) {
+				$decoded = base64_decode( trim( $m[2] ), true );
+				if ( false === $decoded ) {
+					return $m[0];
+				}
+				$new = $swap( $decoded );
+				return $new === $decoded ? $m[0] : $m[1] . base64_encode( $new ) . $m[3];
+			},
+			(string) $content
+		);
+		$content = $swap( $content );
+		return array( $content, $count );
+	}
+
+	/** Byter till det officiella formuläret på de valda resornas sidor (alla språk). */
+	public static function handle_swap_forms() {
+		if ( ! current_user_can( self::CAP ) ) {
+			wp_die( 'Behörighet saknas.' );
+		}
+		check_admin_referer( 'cvb_swap_forms' );
+		$official = self::official_form();
+		if ( ! $official ) {
+			self::notice_and_redirect( 'Inget formulär har den nya mallen, så det finns inget att byta till.', 'error' );
+		}
+		$wanted = isset( $_POST['codes'] ) ? array_map( array( __CLASS__, 'normalize_code' ), (array) wp_unslash( $_POST['codes'] ) ) : array(); // phpcs:ignore WordPress.Security.ValidatedSanitizedInput
+		$all    = ! empty( $_POST['all'] );
+
+		$pages  = 0;
+		$tours  = 0;
+		$failed = array();
+		foreach ( self::find_tours() as $code => $tour ) {
+			if ( ! $all && ! in_array( $code, $wanted, true ) ) {
+				continue;
+			}
+			if ( self::code_problem( $code ) || ! array_diff( $tour['forms'], $official['ids'] ) ) {
+				continue;
+			}
+			$changed = false;
+			foreach ( $tour['post_ids'] as $post_id ) {
+				if ( ! current_user_can( 'edit_post', $post_id ) ) {
+					$failed[] = get_the_title( $post_id );
+					continue;
+				}
+				list( $content, $count ) = self::swap_forms_in_content( get_post_field( 'post_content', $post_id ), $official );
+				if ( ! $count ) {
+					continue;
+				}
+				$result = wp_update_post( wp_slash( array( 'ID' => $post_id, 'post_content' => $content ) ), true );
+				if ( is_wp_error( $result ) ) {
+					$failed[] = get_the_title( $post_id );
+					continue;
+				}
+				$pages++;
+				$changed = true;
+			}
+			if ( $changed ) {
+				$tours++;
+			}
+		}
+
+		$msg = sprintf(
+			'Bytte till %s på %d %s (%d %s). Varje sida har en revision, så ändringen kan ångras under Revisioner när sidan redigeras.',
+			$official['title'],
+			$pages,
+			1 === $pages ? 'sida' : 'sidor',
+			$tours,
+			1 === $tours ? 'resa' : 'resor'
+		);
+		if ( $failed ) {
+			$msg .= '<br>Kunde inte ändra: ' . esc_html( implode( ', ', array_unique( $failed ) ) ) . '.';
+		}
+		self::notice_and_redirect( $msg, $failed ? 'error' : 'success' );
+	}
+
 	public static function official_form( $forms = null ) {
 		$forms    = null === $forms ? self::booking_forms() : $forms;
 		$new      = array_values( array_filter( $forms, function ( $f ) { return $f['new_template']; } ) );
@@ -1118,6 +1249,46 @@ final class CV_Bokningsval {
 					<span class="cvb-bad-note"><strong><?php echo count( $bad ); ?></strong> med felaktig reskod, se de röda markeringarna. Formuläret fungerar inte på de sidorna förrän koden är rättad.</span>
 				<?php endif; ?>
 			</p>
+			<?php
+			// Formulär för att byta till det officiella formuläret. Knapparna i tabellen
+			// hör till det via form="cvb-swap", eftersom formulär inte kan ligga i varandra.
+			$swappable = array();
+			$old_names = array();
+			if ( $official ) {
+				foreach ( $tours as $code => $t ) {
+					$other = array_diff( $t['forms'], $official['ids'] );
+					if ( $other && ! self::code_problem( $code ) ) {
+						$swappable[] = $code;
+						foreach ( $other as $form_id ) {
+							$name               = isset( $titles[ $form_id ] ) ? $titles[ $form_id ] : 'id ' . $form_id;
+							$old_names[ $name ] = isset( $old_names[ $name ] ) ? $old_names[ $name ] + 1 : 1;
+						}
+					}
+				}
+			}
+			?>
+			<form id="cvb-swap" method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" onsubmit="return confirm( 'Byta till <?php echo esc_js( $official ? $official['title'] : '' ); ?> på de valda sidorna? Varje sida får en revision, så det går att ångra.' );">
+				<?php wp_nonce_field( 'cvb_swap_forms' ); ?>
+				<input type="hidden" name="action" value="cvb_swap_forms">
+				<?php if ( $swappable ) : ?>
+					<div class="cvb-swapbox">
+						<p>
+							<strong><?php echo count( $swappable ); ?> resor</strong> kan bytas till <strong><?php echo esc_html( $official['title'] ); ?></strong>.
+							Gamla formulär som ersätts:
+							<?php
+							$parts = array();
+							foreach ( $old_names as $name => $n ) {
+								$parts[] = $name . ' (' . $n . ')';
+							}
+							echo esc_html( implode( ', ', $parts ) );
+							?>.
+						</p>
+						<p>Bara formulärets id och titel i kortkoden ändras, på alla språkversioner av sidorna. Reskoden och resten av sidan lämnas orörda. Resor med felaktig reskod hoppas över.</p>
+						<button type="submit" name="all" value="1" class="button button-primary">Byt formulär på alla <?php echo count( $swappable ); ?> resor</button>
+						<span class="cvb-hint">eller använd knappen <strong>Byt</strong> på en resa i taget.</span>
+					</div>
+				<?php endif; ?>
+			</form>
 			<p class="cvb-filter">
 				<label>Typ:
 					<select id="cvb-filter-typ">
@@ -1205,7 +1376,10 @@ final class CV_Bokningsval {
 										$names[] = isset( $titles[ $form_id ] ) ? $titles[ $form_id ] : 'id ' . $form_id;
 									}
 									?>
-									<span class="cvb-badge cvb-oldform" title="<?php echo esc_attr( 'Sidan använder ' . implode( ', ', array_unique( $names ) ) . '. Byt till kortkoden från knappen Kopiera.' ); ?>">Annat formulär</span>
+									<span class="cvb-badge cvb-oldform" title="<?php echo esc_attr( 'Sidan använder ' . implode( ', ', array_unique( $names ) ) . '.' ); ?>">Annat formulär</span>
+									<?php if ( ! self::code_problem( $code ) ) : ?>
+										<button type="submit" form="cvb-swap" name="codes[]" value="<?php echo esc_attr( $code ); ?>" class="button-link cvb-swap-one" title="<?php echo esc_attr( 'Byt till ' . $official['title'] . ' på sidorna för den här resan' ); ?>">Byt</button>
+									<?php endif; ?>
 								<?php endif; ?>
 								<?php if ( self::code_problem( $code ) ) : ?>
 									<span class="cvb-badge cvb-bad" title="<?php echo esc_attr( self::code_problem( $code ) ); ?>">Felaktig reskod</span>
@@ -1298,6 +1472,10 @@ final class CV_Bokningsval {
 			.cvb-status { color:#646970; }
 			.cvb-badge.cvb-bad { background:#d63638; cursor:help; }
 			.cvb-badge.cvb-oldform { background:#996800; cursor:help; }
+			.cvb-swapbox { background:#fff; border:1px solid #c3c4c7; border-left:4px solid #996800; padding:4px 16px 12px; margin:0 0 16px; max-width:1100px; }
+			.cvb-swapbox p { margin:8px 0; }
+			.cvb-hint { margin-left:8px; color:#646970; }
+			.cvb-swap-one { margin-left:4px; font-size:12px; }
 			.cvb-table code.cvb-bad-code { background:#fcf0f1; color:#8a2424; }
 			.cvb-bad-note { margin-left:8px; color:#8a2424; }
 			.cvb-filter { display:flex; flex-wrap:wrap; gap:8px 16px; align-items:center; }
