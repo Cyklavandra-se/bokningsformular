@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Cykla & Vandra – Bokningsformulär
  * Description: Ett bokningsformulär (Contact Form 7) för både cykel- och vandringsresor. Styr vilka cykeltyper, hjälmval och försäkringar som visas för varje resa, utifrån reskoden (tripcode) i kortkoden.
- * Version: 1.5.1
+ * Version: 1.6.0
  * Author: Cykla & Vandra
  * Requires at least: 6.0
  * Requires PHP: 7.4
@@ -454,9 +454,9 @@ final class CV_Bokningsval {
 	 * Hitta resor (sidor som har en kortkod med tripcode)
 	 * ------------------------------------------------------------------ */
 
-	public static function extract_codes( $content ) {
+	/** Sidans innehåll plus Avadas kodblock, som sparas base64-kodade. */
+	private static function content_haystack( $content ) {
 		$hay = (string) $content;
-		// Avadas kodblock sparas base64-kodade.
 		if ( preg_match_all( '#\[fusion_code[^\]]*\](.*?)\[/fusion_code\]#s', $hay, $m ) ) {
 			foreach ( $m[1] as $block ) {
 				$decoded = base64_decode( trim( $block ), true );
@@ -465,6 +465,32 @@ final class CV_Bokningsval {
 				}
 			}
 		}
+		return $hay;
+	}
+
+	/**
+	 * Vilket formulär (id i kortkoden) som används för varje reskod på sidan.
+	 *
+	 * @return array reskod => array av formulär-id
+	 */
+	public static function extract_form_ids( $content ) {
+		$hay   = self::content_haystack( $content );
+		$found = array();
+		if ( preg_match_all( '/\[contact-form-7\b[^\[\]]*?tripcode[^\[]*?\]/s', $hay, $m ) ) {
+			foreach ( $m[0] as $shortcode ) {
+				$id = preg_match( '/\bid\s*=\s*(?:&quot;|["\'\x{201C}\x{201D}])?([A-Za-z0-9]+)/u', $shortcode, $idm ) ? $idm[1] : '';
+				foreach ( self::extract_codes( $shortcode ) as $code ) {
+					if ( '' !== $id ) {
+						$found[ $code ][] = $id;
+					}
+				}
+			}
+		}
+		return $found;
+	}
+
+	public static function extract_codes( $content ) {
+		$hay = self::content_haystack( $content );
 		// Reskoder kan innehålla mellanslag och andra tecken, t.ex. "Trip 07-06" eller
 		// "Mjölkvägen & Rallarvägen". Värdet inom citattecken läses därför i sin helhet.
 		$q     = '(?:&quot;|&#8220;|&#8221;|&#8243;|"|\x{201C}|\x{201D}|\x{2033})';
@@ -510,9 +536,13 @@ final class CV_Bokningsval {
 			if ( is_array( $details ) && ! empty( $details['language_code'] ) ) {
 				$lang = $details['language_code'];
 			}
+			$form_ids = self::extract_form_ids( $row->post_content );
 			foreach ( $codes as $code ) {
 				if ( ! isset( $tours[ $code ] ) ) {
-					$tours[ $code ] = array( 'posts' => array() );
+					$tours[ $code ] = array( 'posts' => array(), 'forms' => array() );
+				}
+				if ( isset( $form_ids[ $code ] ) ) {
+					$tours[ $code ]['forms'] = array_merge( $tours[ $code ]['forms'], $form_ids[ $code ] );
 				}
 				$tours[ $code ]['posts'][] = array(
 					'id'      => (int) $row->ID,
@@ -543,6 +573,7 @@ final class CV_Bokningsval {
 				'status' => $main['status'],
 				'published' => in_array( 'publish', wp_list_pluck( $posts, 'status' ), true ),
 				'langs'  => $langs,
+				'forms'  => array_values( array_unique( $tour['forms'] ) ),
 				'count'  => count( $posts ),
 			);
 		}
@@ -626,7 +657,12 @@ final class CV_Bokningsval {
 			if ( is_array( $details ) && ! empty( $details['language_code'] ) ) {
 				$lang = strtoupper( $details['language_code'] );
 			}
+			$ids = array( (string) $form->id() );
+			if ( preg_match( '/\bid="([^"]+)"/', $form->shortcode(), $idm ) ) {
+				$ids[] = $idm[1];
+			}
 			$forms[] = array(
+				'ids'          => $ids,
 				'title'        => $form->title(),
 				'lang'         => $lang,
 				'shortcode'    => preg_replace( '/\]$/', ' tripcode="RESKOD"]', $form->shortcode() ),
@@ -643,34 +679,62 @@ final class CV_Bokningsval {
 		return $forms;
 	}
 
-	private static function render_shortcode_box() {
-		$forms    = self::booking_forms();
+	/**
+	 * Formuläret som ska användas: det med den nya mallen. Har det översättningar
+	 * i WPML räknas alla deras id som samma formulär.
+	 *
+	 * @return array|null array( 'title', 'shortcode', 'ids', 'langs' )
+	 */
+	public static function official_form( $forms = null ) {
+		$forms = null === $forms ? self::booking_forms() : $forms;
+		$main  = null;
+		foreach ( $forms as $f ) {
+			if ( ! $f['new_template'] ) {
+				continue;
+			}
+			if ( ! $main ) {
+				$main          = $f;
+				$main['langs'] = array();
+			}
+			$main['ids']     = array_values( array_unique( array_merge( $main['ids'], $f['ids'] ) ) );
+			$main['langs'][] = $f['lang'];
+		}
+		if ( $main ) {
+			$main['langs'] = array_values( array_unique( array_filter( $main['langs'] ) ) );
+		}
+		return $main;
+	}
+
+	/** Kortkoden för en resa, eller '' om inget formulär har den nya mallen. */
+	public static function shortcode_for( $code, $official ) {
+		if ( ! $official ) {
+			return '';
+		}
+		return str_replace( 'tripcode="RESKOD"', 'tripcode="' . str_replace( '"', '', $code ) . '"', $official['shortcode'] );
+	}
+
+	private static function render_shortcode_box( $forms, $official ) {
 		$template = (string) file_get_contents( __DIR__ . '/formularmall-sv.txt' ); // phpcs:ignore WordPress.WP.AlternativeFunctions
+		$old      = array_filter( $forms, function ( $f ) { return ! $f['new_template']; } );
 		?>
 		<div class="cvb-box">
-			<h2>Så lägger du in bokningsformuläret på en resa</h2>
-			<p>
-				Klistra in kortkoden på resans sida och byt <code>RESKOD</code> mot resans reskod (kolumnen Tripcode i Booking Codes).
-				Resan dyker upp i tabellen nedan så fort sidan är sparad, även som utkast. Det behövs ingen uppdateringsknapp.
-			</p>
-			<?php if ( $forms ) : ?>
-				<table class="cvb-shortcodes">
-					<?php foreach ( $forms as $f ) : ?>
-						<tr>
-							<td>
-								<strong><?php echo esc_html( $f['title'] ); ?></strong>
-								<?php if ( $f['lang'] ) : ?><span class="cvb-langs"><?php echo esc_html( $f['lang'] ); ?></span><?php endif; ?>
-								<?php if ( ! $f['new_template'] ) : ?><br><span class="cvb-old">Har inte den nya mallen än</span><?php endif; ?>
-							</td>
-							<td><input type="text" readonly value="<?php echo esc_attr( $f['shortcode'] ); ?>" class="cvb-copy-src code" onfocus="this.select()"></td>
-							<td><button type="button" class="button cvb-copy">Kopiera</button></td>
-						</tr>
-					<?php endforeach; ?>
-				</table>
-			<?php else : ?>
+			<?php if ( $official ) : ?>
+				<h2>Bokningsformuläret: <?php echo esc_html( $official['title'] ); ?>
+					<?php if ( $official['langs'] ) : ?><span class="cvb-langs"><?php echo esc_html( implode( ' · ', $official['langs'] ) ); ?></span><?php endif; ?>
+				</h2>
 				<p>
-					Inget formulär i Contact Form 7 har fältet <code>tripcode</code> än. Skapa ett formulär under <strong>Kontakt → Lägg till nytt</strong>
-					och klistra in mallen nedan under fliken Formulär. Kortkoden visas sedan här.
+					Kopiera kortkoden för en resa med knappen <strong>Kopiera</strong> längst till höger i tabellen, och klistra in den på resans sida.
+					Resor vars sida använder ett annat formulär är markerade med <span class="cvb-badge cvb-oldform">Annat formulär</span>.
+					Nya resor dyker upp i tabellen så fort sidan är sparad, även som utkast.
+				</p>
+				<?php if ( count( $official['langs'] ) < 2 && $old ) : ?>
+					<p class="cvb-old">Formuläret finns bara på <?php echo esc_html( $official['langs'] ? implode( ', ', $official['langs'] ) : 'ett språk' ); ?>. Översätt det i WPML så att de norska sidorna får ett norskt formulär.</p>
+				<?php endif; ?>
+			<?php else : ?>
+				<h2>Så lägger du in bokningsformuläret på en resa</h2>
+				<p>
+					Inget formulär i Contact Form 7 har den nya mallen än. Skapa ett formulär under <strong>Kontakt</strong>
+					och klistra in mallen nedan under fliken Formulär. Därefter visas en knapp för att kopiera kortkoden för varje resa.
 				</p>
 			<?php endif; ?>
 			<details>
@@ -706,12 +770,20 @@ final class CV_Bokningsval {
 			$rows[ $code ] = array( 's' => $s, 'done' => $done, 'todo' => $todo );
 		}
 		$suppliers = array_unique( array_filter( wp_list_pluck( wp_list_pluck( $rows, 's' ), 'leverantor' ) ) );
+		$forms     = self::booking_forms();
+		$official  = self::official_form( $forms );
+		$titles    = array();
+		foreach ( $forms as $f ) {
+			foreach ( $f['ids'] as $form_id ) {
+				$titles[ $form_id ] = $f['title'];
+			}
+		}
 		sort( $suppliers );
 		?>
 		<div class="wrap cvb-wrap">
 			<h1>Bokningsformulär</h1>
 			<?php self::render_notices(); ?>
-			<?php self::render_shortcode_box(); ?>
+			<?php self::render_shortcode_box( $forms, $official ); ?>
 			<details class="cvb-help">
 				<summary>Så fungerar tabellen</summary>
 				<p>
@@ -727,6 +799,12 @@ final class CV_Bokningsval {
 			<p>
 				<strong><?php echo esc_html( count( $tours ) ); ?></strong> resor,
 				<strong><?php echo esc_html( $not_done ); ?></strong> cykelresor ej klara.
+				<?php
+				$other_form = $official ? count( array_filter( $tours, function ( $t ) use ( $official ) { return (bool) array_diff( $t['forms'], $official['ids'] ); } ) ) : 0;
+				if ( $other_form ) :
+					?>
+					<strong><?php echo (int) $other_form; ?></strong> använder ett annat formulär.
+				<?php endif; ?>
 				<?php
 				$bad = array_filter( array_keys( $tours ), array( __CLASS__, 'code_problem' ) );
 				if ( $bad ) :
@@ -762,10 +840,11 @@ final class CV_Bokningsval {
 							<?php if ( self::SHOW_COMMENT ) : ?><th>Kommentar</th><?php endif; ?>
 							<th>Hjälm</th>
 							<th class="cvb-c">Klar</th>
+							<?php if ( $official ) : ?><th class="cvb-c">Kortkod</th><?php endif; ?>
 						</tr>
 					</thead>
 					<?php
-					$columns = 5 + count( $fields ) + ( self::SHOW_COMMENT ? 1 : 0 );
+					$columns = 5 + count( $fields ) + ( self::SHOW_COMMENT ? 1 : 0 ) + ( $official ? 1 : 0 );
 					$groups  = array(
 						'published' => array_filter( $tours, function ( $t ) { return ! empty( $t['published'] ); } ),
 						'drafts'    => array_filter( $tours, function ( $t ) { return empty( $t['published'] ); } ),
@@ -807,6 +886,16 @@ final class CV_Bokningsval {
 								<?php if ( 'publish' !== $tour['status'] ) : ?>
 									<em class="cvb-status">(<?php echo esc_html( self::status_label( $tour['status'] ) ); ?>)</em>
 								<?php endif; ?>
+								<?php
+								$other = $official ? array_diff( $tour['forms'], $official['ids'] ) : array();
+								if ( $other ) :
+									$names = array();
+									foreach ( $other as $form_id ) {
+										$names[] = isset( $titles[ $form_id ] ) ? $titles[ $form_id ] : 'id ' . $form_id;
+									}
+									?>
+									<span class="cvb-badge cvb-oldform" title="<?php echo esc_attr( 'Sidan använder ' . implode( ', ', array_unique( $names ) ) . '. Byt till kortkoden från knappen Kopiera.' ); ?>">Annat formulär</span>
+								<?php endif; ?>
 								<?php if ( self::code_problem( $code ) ) : ?>
 									<span class="cvb-badge cvb-bad" title="<?php echo esc_attr( self::code_problem( $code ) ); ?>">Felaktig reskod</span>
 								<?php endif; ?>
@@ -833,6 +922,15 @@ final class CV_Bokningsval {
 								</select>
 							</td>
 							<td class="cvb-c"><input type="checkbox" name="<?php echo $n; ?>[klar]" value="1" <?php checked( $done ); ?> aria-label="Klar"></td>
+							<?php if ( $official ) : ?>
+								<td class="cvb-c">
+									<?php if ( self::code_problem( $code ) ) : ?>
+										<button type="button" class="button button-small" disabled title="Rätta reskoden på sidan först">Kopiera</button>
+									<?php else : ?>
+										<button type="button" class="button button-small cvb-copy" data-copy="<?php echo esc_attr( self::shortcode_for( $code, $official ) ); ?>" title="<?php echo esc_attr( self::shortcode_for( $code, $official ) ); ?>">Kopiera</button>
+									<?php endif; ?>
+								</td>
+							<?php endif; ?>
 						</tr>
 					<?php endforeach; ?>
 					</tbody>
@@ -877,8 +975,6 @@ final class CV_Bokningsval {
 			.cvb-langs { margin-left:6px; color:#787c82; font-size:11px; }
 			.cvb-box { background:#fff; border:1px solid #c3c4c7; border-left:4px solid #2271b1; padding:4px 16px 12px; margin:12px 0 16px; max-width:1100px; }
 			.cvb-box h2 { margin:12px 0 4px; font-size:15px; }
-			.cvb-shortcodes td { padding:4px 12px 4px 0; vertical-align:middle; }
-			.cvb-shortcodes input { width:min(560px, 60vw); }
 			.cvb-old { color:#996800; font-size:12px; }
 			.cvb-help summary, .cvb-box summary { cursor:pointer; color:#2271b1; margin:6px 0; }
 			.cvb-table tr.cvb-sep th { background:#f0f0f1; padding:18px 10px 8px; text-align:left; font-size:14px; font-weight:600; border-top:2px solid #c3c4c7; }
@@ -886,6 +982,7 @@ final class CV_Bokningsval {
 			.cvb-table tbody.cvb-drafts td { opacity:.8; }
 			.cvb-status { color:#646970; }
 			.cvb-badge.cvb-bad { background:#d63638; cursor:help; }
+			.cvb-badge.cvb-oldform { background:#996800; cursor:help; }
 			.cvb-table code.cvb-bad-code { background:#fcf0f1; color:#8a2424; }
 			.cvb-bad-note { margin-left:8px; color:#8a2424; }
 			.cvb-filter { display:flex; flex-wrap:wrap; gap:8px 16px; align-items:center; }
@@ -940,7 +1037,7 @@ final class CV_Bokningsval {
 			// Kopiera kortkod eller mall.
 			document.querySelectorAll( '.cvb-copy' ).forEach( function ( btn ) {
 				btn.addEventListener( 'click', function () {
-					var src = btn.closest( 'tr, details' ).querySelector( '.cvb-copy-src' );
+					var src = btn.dataset.copy ? { value: btn.dataset.copy, select: function () {} } : btn.closest( 'tr, details' ).querySelector( '.cvb-copy-src' );
 					var done = function () {
 						var old = btn.textContent;
 						btn.textContent = 'Kopierat!';
@@ -949,8 +1046,12 @@ final class CV_Bokningsval {
 					if ( navigator.clipboard && window.isSecureContext ) {
 						navigator.clipboard.writeText( src.value ).then( done );
 					} else {
-						src.select();
+						var tmp = document.createElement( 'textarea' );
+						tmp.value = src.value;
+						document.body.appendChild( tmp );
+						tmp.select();
 						document.execCommand( 'copy' );
+						tmp.remove();
 						done();
 					}
 				} );

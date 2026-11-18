@@ -130,12 +130,24 @@ class Fake_Form {
 	function __construct( $id ) { $this->id = $id; }
 	function prop( $k ) { return array( 1 => 'utan reskod', 2 => '[hidden tripcode default:shortcode_attr]', 3 => '<div class="resenar-rad cvb-cykel">[hidden tripcode default:shortcode_attr]' )[ $this->id ]; }
 	function title() { return 'Form ' . $this->id; }
+	function id() { return $this->id; }
 	function shortcode() { return '[contact-form-7 id="abc' . $this->id . '" title="Form ' . $this->id . '"]'; }
 }
 $forms = CV_Bokningsval::booking_forms();
 ok( 2 === count( $forms ), 'bara formulär med tripcode listas' );
 ok( 'Form 3' === $forms[0]['title'] && $forms[0]['new_template'], 'formulär med nya mallen först' );
 ok( '[contact-form-7 id="abc3" title="Form 3" tripcode="RESKOD"]' === $forms[0]['shortcode'], 'kortkoden får tripcode: ' . $forms[0]['shortcode'] );
+
+$off = CV_Bokningsval::official_form( $forms );
+ok( $off && 'Form 3' === $off['title'] && in_array( 'abc3', $off['ids'], true ) && in_array( '3', $off['ids'], true ), 'det officiella formuläret är det med nya mallen' );
+ok( '[contact-form-7 id="abc3" title="Form 3" tripcode="Trip: 05-11"]' === CV_Bokningsval::shortcode_for( 'Trip: 05-11', $off ), 'kortkod per resa' );
+ok( '' === CV_Bokningsval::shortcode_for( 'X', null ), 'ingen kortkod utan nytt formulär' );
+$ids = CV_Bokningsval::extract_form_ids( '<p>[contact-form-7 id="cdee672" title="Holland" tripcode="Trip 07-06"]</p> [contact-form-7 id="ca124e5" title="Ny" tripcode="DE-X"] [contact-form-7 id=&quot;99&quot; tripcode=&quot;IT-Y&quot;]' );
+ok( array( 'Trip 07-06' => array( 'cdee672' ), 'DE-X' => array( 'ca124e5' ), 'IT-Y' => array( '99' ) ) === $ids, 'formulär-id per reskod: ' . json_encode( $ids ) );
+ok( array( 'DE-Z' => array( 'ca124e5' ) ) === CV_Bokningsval::extract_form_ids( '[contact-form-7 id="nyhetsbrev"] text [contact-form-7 id="ca124e5" tripcode="DE-Z"]' ), 'formulär utan tripcode före bokningsformuläret ger inte fel id' );
+ok( array( '<span data-sheets-root=' => array( 'cdee672' ) ) === CV_Bokningsval::extract_form_ids( '[contact-form-7 id="cdee672" tripcode="<span data-sheets-root="1">Trip 07-06</span>"]' ), 'trasig kod med HTML ger ändå formulär-id' );
+$b64 = base64_encode( '[contact-form-7 id="ca124e5" title="Ny" tripcode="Kattegattleden 4 nätter"]' );
+ok( array( 'Kattegattleden 4 nätter' => array( 'ca124e5' ) ) === CV_Bokningsval::extract_form_ids( "[fusion_code]{$b64}[/fusion_code]" ), 'formulär-id i Avadas kodblock' );
 
 echo "\n--- Felaktiga reskoder ---\n";
 ok( '' !== CV_Bokningsval::code_problem( '<span data-sheets-root=' ), 'HTML från Google Sheets upptäcks' );
