@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Cykla & Vandra – Bokningsformulär
  * Description: Ett bokningsformulär (Contact Form 7) för både cykel- och vandringsresor. Styr vilka cykeltyper, hjälmval och försäkringar som visas för varje resa, utifrån reskoden (tripcode) i kortkoden.
- * Version: 1.4.0
+ * Version: 1.4.1
  * Author: Cykla & Vandra
  * Requires at least: 6.0
  * Requires PHP: 7.4
@@ -603,15 +603,14 @@ final class CV_Bokningsval {
 				<table class="widefat striped cvb-table">
 					<thead>
 						<tr>
+							<th class="cvb-c" title="C = cykel, V = vandring">Typ</th>
+							<th>Leverantör<br>Reskod</th>
 							<th>Resa</th>
-							<th>Typ</th>
-							<th>Reskod</th>
-							<th>Leverantör</th>
-							<th>Hjälm</th>
 							<?php foreach ( $fields as $label ) : ?>
 								<th class="cvb-c"><?php echo esc_html( $label ); ?></th>
 							<?php endforeach; ?>
 							<?php if ( self::SHOW_COMMENT ) : ?><th>Kommentar</th><?php endif; ?>
+							<th>Hjälm</th>
 							<th class="cvb-c">Klar</th>
 						</tr>
 					</thead>
@@ -623,6 +622,19 @@ final class CV_Bokningsval {
 						$cls  = ( $rows[ $code ]['todo'] ? 'cvb-todo' : 'cvb-done' ) . ( 'vandring' === $s['typ'] ? ' cvb-hike' : '' );
 						?>
 						<tr class="<?php echo esc_attr( $cls ); ?>" data-typ="<?php echo esc_attr( $s['typ'] ); ?>" data-search="<?php echo esc_attr( strtolower( $tour['title'] . ' ' . $code . ' ' . $s['leverantor'] ) ); ?>">
+							<td class="cvb-c cvb-typcell">
+								<input type="hidden" name="<?php echo $n; ?>[typ]" value="<?php echo esc_attr( $s['typ'] ); ?>" class="cvb-typ-input">
+								<button type="button" class="cvb-typ-btn cvb-typ-<?php echo esc_attr( $s['typ'] ); ?>" aria-haspopup="true" aria-expanded="false" title="<?php echo esc_attr( $types[ $s['typ'] ] ); ?> – klicka för att byta"><?php echo esc_html( 'vandring' === $s['typ'] ? 'V' : 'C' ); ?></button>
+								<div class="cvb-typ-menu" hidden>
+									<?php foreach ( $types as $value => $label ) : ?>
+										<button type="button" data-value="<?php echo esc_attr( $value ); ?>"><?php echo esc_html( $label ); ?></button>
+									<?php endforeach; ?>
+								</div>
+							</td>
+							<td class="cvb-code">
+								<input type="text" name="<?php echo $n; ?>[leverantor]" value="<?php echo esc_attr( $s['leverantor'] ); ?>" list="cvb-suppliers" class="cvb-supplier" placeholder="Leverantör" aria-label="Leverantör">
+								<code><?php echo esc_html( $code ); ?></code>
+							</td>
 							<td>
 								<a href="<?php echo esc_url( get_edit_post_link( $tour['id'] ) ); ?>" title="Redigera sidan"><?php echo esc_html( $tour['title'] ); ?></a>
 								<a href="<?php echo esc_url( get_permalink( $tour['id'] ) ); ?>" class="cvb-view" target="_blank" rel="noopener" title="Visa resans sida" aria-label="Visa resans sida (öppnas i ny flik)">&#8599;</a>
@@ -638,15 +650,12 @@ final class CV_Bokningsval {
 									<input type="hidden" name="<?php echo $n; ?>[kommentar]" value="<?php echo esc_attr( $s['kommentar'] ); ?>">
 								<?php endif; ?>
 							</td>
-							<td>
-								<select name="<?php echo $n; ?>[typ]" class="cvb-typ">
-									<?php foreach ( $types as $value => $label ) : ?>
-										<option value="<?php echo esc_attr( $value ); ?>" <?php selected( $s['typ'], $value ); ?>><?php echo esc_html( $label ); ?></option>
-									<?php endforeach; ?>
-								</select>
-							</td>
-							<td><code><?php echo esc_html( $code ); ?></code></td>
-							<td><input type="text" name="<?php echo $n; ?>[leverantor]" value="<?php echo esc_attr( $s['leverantor'] ); ?>" list="cvb-suppliers" class="cvb-supplier" aria-label="Leverantör"></td>
+							<?php foreach ( $fields as $key => $label ) : ?>
+								<td class="cvb-c<?php echo in_array( $key, array( 'vanlig', 'el', 'sportig', 'egen' ), true ) ? ' cvb-bike' : ''; ?>"><input type="checkbox" name="<?php echo $n; ?>[<?php echo esc_attr( $key ); ?>]" value="1" <?php checked( ! empty( $s[ $key ] ) ); ?> aria-label="<?php echo esc_attr( $label ); ?>"></td>
+							<?php endforeach; ?>
+							<?php if ( self::SHOW_COMMENT ) : ?>
+								<td><input type="text" name="<?php echo $n; ?>[kommentar]" value="<?php echo esc_attr( $s['kommentar'] ); ?>" class="regular-text" style="width:100%"></td>
+							<?php endif; ?>
 							<td class="cvb-bike">
 								<select name="<?php echo $n; ?>[hjalm]">
 									<?php foreach ( $helmets as $value => $label ) : ?>
@@ -654,12 +663,6 @@ final class CV_Bokningsval {
 									<?php endforeach; ?>
 								</select>
 							</td>
-							<?php foreach ( $fields as $key => $label ) : ?>
-								<td class="cvb-c<?php echo in_array( $key, array( 'vanlig', 'el', 'sportig', 'egen' ), true ) ? ' cvb-bike' : ''; ?>"><input type="checkbox" name="<?php echo $n; ?>[<?php echo esc_attr( $key ); ?>]" value="1" <?php checked( ! empty( $s[ $key ] ) ); ?> aria-label="<?php echo esc_attr( $label ); ?>"></td>
-							<?php endforeach; ?>
-							<?php if ( self::SHOW_COMMENT ) : ?>
-								<td><input type="text" name="<?php echo $n; ?>[kommentar]" value="<?php echo esc_attr( $s['kommentar'] ); ?>" class="regular-text" style="width:100%"></td>
-							<?php endif; ?>
 							<td class="cvb-c"><input type="checkbox" name="<?php echo $n; ?>[klar]" value="1" <?php checked( $done ); ?> aria-label="Klar"></td>
 						</tr>
 					<?php endforeach; ?>
@@ -704,8 +707,21 @@ final class CV_Bokningsval {
 			.cvb-langs { margin-left:6px; color:#787c82; font-size:11px; }
 			.cvb-filter { display:flex; flex-wrap:wrap; gap:8px 16px; align-items:center; }
 			.cvb-shown { color:#646970; }
-			.cvb-table .cvb-supplier { width: 11em; }
-			.cvb-table code { white-space: nowrap; }
+			.cvb-table .cvb-code { white-space: nowrap; }
+			.cvb-table .cvb-supplier { display:block; width:13em; min-height:26px; line-height:1.4; padding:0 6px; margin:0 0 3px -7px; font-weight:600; }
+			.cvb-table .cvb-supplier:not(:focus) { border-color:transparent; background:transparent; box-shadow:none; }
+			.cvb-table .cvb-supplier:not(:focus):hover { border-color:#c3c4c7; }
+			.cvb-table .cvb-code code { font-size:12px; }
+			.cvb-table th.cvb-c:first-child, .cvb-typcell { width:34px; }
+			.cvb-typcell { position:relative; }
+			.cvb-typ-btn { width:28px; height:28px; border-radius:50%; border:0; color:#fff; font-weight:700; cursor:pointer; }
+			.cvb-typ-btn.cvb-typ-cykel { background:#2271b1; }
+			.cvb-typ-btn.cvb-typ-vandring { background:#00a32a; }
+			.cvb-typ-btn:focus-visible { outline:2px solid #1d2327; outline-offset:2px; }
+			.cvb-typ-menu { position:absolute; z-index:20; left:6px; top:calc(50% + 16px); display:flex; flex-direction:column; min-width:110px; padding:4px; background:#fff; border:1px solid #c3c4c7; border-radius:6px; box-shadow:0 4px 12px rgba(0,0,0,.15); }
+			.cvb-typ-menu[hidden] { display:none; }
+			.cvb-typ-menu button { text-align:left; padding:6px 10px; border:0; background:none; border-radius:4px; cursor:pointer; font-size:13px; }
+			.cvb-typ-menu button:hover, .cvb-typ-menu button:focus { background:#f0f0f1; }
 			.cvb-view { margin-left:4px; text-decoration:none; font-size:15px; }
 		</style>
 		<script>
@@ -730,10 +746,52 @@ final class CV_Bokningsval {
 				} );
 				shown.textContent = 'Visar ' + n + ' resor';
 			}
-			document.querySelectorAll( '.cvb-typ' ).forEach( function ( sel ) {
-				sel.addEventListener( 'change', function () {
-					sel.closest( 'tr' ).classList.toggle( 'cvb-hike', sel.value === 'vandring' );
+			// Typ: knappen C/V öppnar en liten meny med Cykel och Vandring.
+			var labels = { cykel: 'Cykel', vandring: 'Vandring' };
+			function closeMenus( except ) {
+				document.querySelectorAll( '.cvb-typ-menu' ).forEach( function ( m ) {
+					if ( m !== except && ! m.hidden ) {
+						m.hidden = true;
+						m.parentNode.querySelector( '.cvb-typ-btn' ).setAttribute( 'aria-expanded', 'false' );
+					}
 				} );
+			}
+			document.querySelectorAll( '.cvb-typcell' ).forEach( function ( cell ) {
+				var btn = cell.querySelector( '.cvb-typ-btn' );
+				var menu = cell.querySelector( '.cvb-typ-menu' );
+				var input = cell.querySelector( '.cvb-typ-input' );
+				btn.addEventListener( 'click', function ( e ) {
+					e.stopPropagation();
+					closeMenus( menu );
+					menu.hidden = ! menu.hidden;
+					btn.setAttribute( 'aria-expanded', menu.hidden ? 'false' : 'true' );
+					if ( ! menu.hidden ) {
+						menu.querySelector( '[data-value="' + input.value + '"]' ).focus();
+					}
+				} );
+				menu.addEventListener( 'click', function ( e ) {
+					var choice = e.target.closest( 'button' );
+					if ( ! choice ) {
+						return;
+					}
+					e.stopPropagation();
+					var value = choice.dataset.value;
+					input.value = value;
+					btn.textContent = value === 'vandring' ? 'V' : 'C';
+					btn.className = 'cvb-typ-btn cvb-typ-' + value;
+					btn.title = labels[ value ] + ' – klicka för att byta';
+					cell.closest( 'tr' ).classList.toggle( 'cvb-hike', value === 'vandring' );
+					closeMenus();
+					btn.focus();
+				} );
+			} );
+			document.addEventListener( 'click', function () {
+				closeMenus();
+			} );
+			document.addEventListener( 'keydown', function ( e ) {
+				if ( e.key === 'Escape' ) {
+					closeMenus();
+				}
 			} );
 			search.addEventListener( 'input', apply );
 			todo.addEventListener( 'change', apply );
