@@ -9,6 +9,9 @@ WordPress-tillägg för cyklavandra.se. Det låter **ett** bokningsformulär i C
 - WordPress med Avada (sidbyggare), Contact Form 7, **Flamingo** (sparar alla inskick) och **Conditional Fields for CF7** (används redan för resenär 2–8 och fakturaadresser via `[group]`).
 - CF7 Dynamic Text Extension: `[dynamichidden your-subject "CF7_get_post_var key='title'"]`.
 - **WPML**: svenska är standardspråket, och de norska sidorna ligger under `/no/`.
+- **CF7 Skins** styr formulärens utseende (klassen `cf7skins cf7s-default` på `<form>`). Stilen väljs per formulär och följer inte automatiskt med till WPML-översättningen: 2026-11-18 hade det svenska formuläret (36488) stilen men inte den norska översättningen (36490), som därför såg annorlunda ut (vita fält, CF7:s standardtext "—Velg et alternativ—").
+- **WPML och formuläret:** *Bokningsformulär självguidade v1.0* är nr 36488 (`sv_SE`), och den norska översättningen är nr 36490 (`nb_NO`). Båda har mallens klasser, och tillägget styr båda.
+- **Kontroll av sajten:** molnsessionen får hämta `cyklavandra.se` och `www.cyklavandra.se` (tillåtna i miljön 2026-11-18). Sidornas HTML visar formulärets nummer (`_wpcf7`), språk (`_wpcf7_locale`), reskod (`tripcode`) och vilka alternativ tillägget lämnat kvar, t.ex. `curl -sL -A "Mozilla/5.0" https://cyklavandra.se/cykla/cykla-pa-egen-hand/algarve/`.
 - Code Snippets används för egen PHP. Där finns troligen redan ett filter som släpper igenom `tripcode` i kortkoden. Tillägget lägger till samma filter, vilket är ofarligt.
 - Resesidorna har kortkoder som `[contact-form-7 id="2b3b45c" title="…" tripcode="DE-MORTK-04A"]`.
 - **Bokningsmailen startar hela bokningsprocessen.** Fältnamnen får inte ändras, och mailen och Flamingo måste fungera som förut.
