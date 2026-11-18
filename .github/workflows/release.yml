@@ -1,35 +1,64 @@
 name: Release
 
-# Skapa en release genom att pusha en tagg, t.ex.:
-#   git tag v1.2.0 && git push origin v1.2.0
-# Versionen i tagget måste stämma med "Version:" i bokningsformular.php.
+# Skapar en release automatiskt när versionen i bokningsformular.php ändras.
+# Höj "Version:" och pusha till main, så skapas taggen vX.Y.Z och en release
+# med bokningsformular.zip. WordPress hittar den via "Sök efter uppdatering".
+# Finns redan en release för versionen görs ingenting (utom att en saknad
+# zip-fil läggs till). Går också att köra för hand under Actions.
 on:
   push:
-    tags:
-      - 'v*'
+    branches:
+      - main
+  workflow_dispatch:
 
 permissions:
   contents: write
 
+concurrency:
+  group: release
+  cancel-in-progress: false
+
 jobs:
   release:
     runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
     steps:
       - uses: actions/checkout@v4
 
-      - name: Kontrollera version
+      - name: Läs version
+        id: version
         run: |
-          TAG="${GITHUB_REF_NAME#v}"
-          HEADER=$(grep -m1 -E '^\s*\*\s*Version:' bokningsformular.php | sed -E 's/.*Version:\s*//' | tr -d '[:space:]')
-          if [ "$TAG" != "$HEADER" ]; then
-            echo "::error::Taggen ($TAG) stämmer inte med Version i bokningsformular.php ($HEADER)."
+          VERSION=$(grep -m1 -E '^\s*\*\s*Version:' bokningsformular.php | sed -E 's/.*Version:\s*//' | tr -d '[:space:]')
+          if ! echo "$VERSION" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+$'; then
+            echo "::error::Kunde inte läsa en giltig Version i bokningsformular.php (fick '$VERSION')."
             exit 1
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "tag=v$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Finns releasen redan?
+        id: check
+        run: |
+          TAG="${{ steps.version.outputs.tag }}"
+          if gh release view "$TAG" --json assets --jq '.assets[].name' > assets.txt 2>/dev/null; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+            if grep -qx 'bokningsformular.zip' assets.txt; then
+              echo "complete=true" >> "$GITHUB_OUTPUT"
+              echo "Release $TAG finns redan. Höj Version i bokningsformular.php för att släppa en ny."
+            fi
           fi
 
       - name: Bygg zip
+        if: steps.check.outputs.complete != 'true'
         run: git archive --format=zip --prefix=bokningsformular/ -o bokningsformular.zip HEAD
 
       - name: Skapa release
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: gh release create "$GITHUB_REF_NAME" bokningsformular.zip --title "$GITHUB_REF_NAME" --generate-notes
+        if: steps.check.outputs.exists != 'true'
+        run: |
+          TAG="${{ steps.version.outputs.tag }}"
+          gh release create "$TAG" bokningsformular.zip --target "$GITHUB_SHA" --title "$TAG" --generate-notes
+
+      - name: Lägg till zip i befintlig release
+        if: steps.check.outputs.exists == 'true' && steps.check.outputs.complete != 'true'
+        run: gh release upload "${{ steps.version.outputs.tag }}" bokningsformular.zip --clobber

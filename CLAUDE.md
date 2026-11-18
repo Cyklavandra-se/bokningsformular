@@ -43,10 +43,10 @@ WordPress-tillägg för cyklavandra.se. Det låter **ett** bokningsformulär i C
 ## Uppdateringar (`updater.php`)
 
 - Huvudet har `Update URI: https://github.com/cyklavandra-se/bokningsformular`, och uppdateraren kopplar in sig på `update_plugins_github.com` (WP 5.8+). Den läser `releases/latest` från GitHubs API (publikt repo, ingen token) och sparar svaret i transienten `cvb_github_release` i sex timmar.
-- Releasen måste ha bilagan `bokningsformular.zip` med mappen `bokningsformular/` i roten. `.github/workflows/release.yml` bygger den med `git archive` när en tagg `v*` pushas, och stoppar om taggen inte stämmer med `Version:`.
+- Releasen måste ha bilagan `bokningsformular.zip` med mappen `bokningsformular/` i roten. `.github/workflows/release.yml` körs vid varje push till `main`: den läser `Version:`, och om releasen `vX.Y.Z` inte finns bygger den zip-filen med `git archive` och skapar tagg och release med `gh release create`. Finns releasen men saknar zip-filen laddas den upp. (Molnsessioner får inte pusha taggar, därför skapas de av Actions.)
 - `plugins_api` ger rutan "Visa detaljer" (releasetexten blir ändringslogg). `upgrader_source_selection` döper om den uppackade mappen till den installerade mappens namn.
 - Ikoner: `assets/icon.svg` och PNG i 128 och 256 px (uppdateringslistan), samt `assets/menu-icon.svg` (adminmenyn, som base64-data-URI).
-- **Ny version:** höj `Version:`, pusha till `main`, skapa och pusha taggen `vX.Y.Z`.
+- **Ny version:** höj `Version:` och pusha till `main`. Inga taggar för hand.
 
 ## Kontraktet med formuläret (`formularmall-sv.txt`)
 

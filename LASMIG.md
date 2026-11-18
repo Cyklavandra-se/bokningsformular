@@ -58,19 +58,14 @@ En cykelresa som saknar inställning får standardläget: vanlig cykel, elcykel 
 
 ## Uppdateringar
 
-Tillägget uppdateras som vilket tillägg som helst under **Tillägg** och **Uppdateringar** i WordPress. Det hämtar den senaste releasen från GitHub (`cyklavandra-se/bokningsformular`) och söker efter nya versioner var sjätte timme. Knappen **Sök igen** under **Kontrollpanel → Uppdateringar** söker direkt.
+Tillägget uppdateras som vilket tillägg som helst under **Tillägg** och **Uppdateringar** i WordPress. Det hämtar den senaste releasen från GitHub (`cyklavandra-se/bokningsformular`) och söker efter nya versioner var sjätte timme. Länken **Sök efter uppdatering** under tilläggets namn, eller **Sök igen** under **Kontrollpanel → Uppdateringar**, söker direkt.
 
 Så här släpps en ny version:
 
-1. Höj `Version:` överst i `bokningsformular.php`, t.ex. till `1.2.0`, och pusha till `main`.
-2. Skapa och pusha en tagg med samma nummer:
+1. Höj `Version:` överst i `bokningsformular.php`, t.ex. från `1.2.0` till `1.2.1`.
+2. Pusha till `main`.
 
-   ```bash
-   git tag v1.2.0
-   git push origin v1.2.0
-   ```
-
-3. GitHub Actions bygger `bokningsformular.zip` och skapar en release. Om taggen och versionen i filen inte stämmer överens stoppas releasen.
+GitHub Actions ser att versionen är ny och skapar taggen (t.ex. `v1.2.1`) och en release med `bokningsformular.zip`. Inga taggar behöver skapas för hand. Pushar som inte ändrar versionen skapar ingen release.
 
 Texten i releasen visas under **Visa detaljer → Ändringar** i WordPress. Den går att redigera på GitHub i efterhand.
 
