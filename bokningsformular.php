@@ -1,12 +1,12 @@
 <?php
 /**
- * Plugin Name: Cykla & Vandra – Bokningsformulär cykel
- * Description: Styr vilka cykeltyper, hjälmval och försäkringar som visas i bokningsformuläret (Contact Form 7) för varje resa, utifrån reskoden (tripcode) i kortkoden.
+ * Plugin Name: Cykla & Vandra – Bokningsformulär
+ * Description: Ett bokningsformulär (Contact Form 7) för både cykel- och vandringsresor. Styr vilka cykeltyper, hjälmval och försäkringar som visas för varje resa, utifrån reskoden (tripcode) i kortkoden.
  * Version: 1.0.0
  * Author: Cykla & Vandra
  * Requires at least: 6.0
  * Requires PHP: 7.4
- * Text Domain: bokningsformular-cykel
+ * Text Domain: bokningsformular
  */
 
 if ( ! defined( 'ABSPATH' ) ) {
@@ -17,7 +17,7 @@ final class CV_Bokningsval {
 
 	const OPTION = 'cvb_settings';
 	const CAP    = 'edit_pages';
-	const SLUG   = 'bokningsformular-cykel';
+	const SLUG   = 'bokningsformular';
 
 	/**
 	 * Ordningen på alternativen i formulärets listor. Formuläret måste ha
@@ -52,9 +52,34 @@ final class CV_Bokningsval {
 		);
 	}
 
+	public static function type_choices() {
+		return array(
+			'cykel'    => 'Cykel',
+			'vandring' => 'Vandring',
+		);
+	}
+
+	/** Gissar resans typ utifrån adressen (svenska originalet om WPML finns). */
+	public static function guess_type( $post_id ) {
+		$post_id = (int) $post_id;
+		if ( $post_id <= 0 ) {
+			return 'cykel';
+		}
+		$default_lang = apply_filters( 'wpml_default_language', null );
+		if ( $default_lang ) {
+			$original = apply_filters( 'wpml_object_id', $post_id, get_post_type( $post_id ), true, $default_lang );
+			if ( $original ) {
+				$post_id = (int) $original;
+			}
+		}
+		$url = (string) get_permalink( $post_id );
+		return preg_match( '#/(vandra|vandring|vandre|fottur)#i', $url ) ? 'vandring' : 'cykel';
+	}
+
 	/** Standardläge för resor som inte är ifyllda. */
 	public static function defaults() {
 		return array(
+			'typ'       => '',
 			'hjalm'     => 'hyra',
 			'vanlig'    => 1,
 			'el'        => 1,
@@ -90,17 +115,27 @@ final class CV_Bokningsval {
 		return is_array( $all ) ? $all : array();
 	}
 
-	public static function settings_for( $code ) {
+	/**
+	 * Inställningarna för en reskod. Saknas sparad typ gissas den utifrån sidan.
+	 */
+	public static function settings_for( $code, $post_id = 0 ) {
 		$all = self::all_settings();
 		if ( '' !== $code && isset( $all[ $code ] ) && is_array( $all[ $code ] ) ) {
-			return wp_parse_args( $all[ $code ], self::defaults() );
+			$s = wp_parse_args( $all[ $code ], self::defaults() );
+		} else {
+			$s = self::defaults();
 		}
-		return self::defaults();
+		if ( ! array_key_exists( $s['typ'], self::type_choices() ) ) {
+			$s['typ'] = self::guess_type( $post_id );
+		}
+		return $s;
 	}
 
 	public static function sanitize_row( $row ) {
 		$row   = is_array( $row ) ? $row : array();
 		$clean = self::defaults();
+		$typ   = isset( $row['typ'] ) ? sanitize_key( $row['typ'] ) : 'cykel';
+		$clean['typ'] = array_key_exists( $typ, self::type_choices() ) ? $typ : 'cykel';
 		$hjalm = isset( $row['hjalm'] ) ? sanitize_key( $row['hjalm'] ) : 'hyra';
 		$clean['hjalm'] = array_key_exists( $hjalm, self::helmet_choices() ) ? $hjalm : 'hyra';
 		foreach ( array_keys( self::bool_fields() ) as $key ) {
@@ -141,6 +176,23 @@ final class CV_Bokningsval {
 		return '';
 	}
 
+	/** Sidan som formuläret ligger på (används för att gissa typ). */
+	public static function current_post_id() {
+		if ( isset( $_POST['_wpcf7'], $_POST['_wpcf7_container_post'] ) ) { // phpcs:ignore WordPress.Security.NonceVerification
+			return absint( $_POST['_wpcf7_container_post'] ); // phpcs:ignore WordPress.Security.NonceVerification
+		}
+		return function_exists( 'get_the_ID' ) ? (int) get_the_ID() : 0;
+	}
+
+	public static function current_settings() {
+		return self::settings_for( self::current_tripcode(), self::current_post_id() );
+	}
+
+	private static function make_optional( $tag ) {
+		$tag = self::tag_set( $tag, 'type', rtrim( (string) self::tag_get( $tag, 'type' ), '*' ) );
+		return self::tag_set( $tag, 'basetype', rtrim( (string) self::tag_get( $tag, 'basetype' ), '*' ) );
+	}
+
 	public static function filter_form_tag( $tag, $replace = false ) {
 		$name = self::tag_get( $tag, 'name' );
 		if ( ! is_string( $name ) || '' === $name ) {
@@ -149,12 +201,21 @@ final class CV_Bokningsval {
 
 		$is_bike   = (bool) preg_match( '/^cykel-\d+$/', $name );
 		$is_helmet = (bool) preg_match( '/^hjalm-\d+$/', $name );
+		$is_height = (bool) preg_match( '/^langd-\d+$/', $name );
 		$is_ins    = in_array( $name, array( 'cykelforsakring', 'assistansforsakring' ), true );
-		if ( ! $is_bike && ! $is_helmet && ! $is_ins ) {
+		if ( ! $is_bike && ! $is_helmet && ! $is_height && ! $is_ins ) {
 			return $tag;
 		}
 
-		$s = self::settings_for( self::current_tripcode() );
+		$s = self::current_settings();
+
+		// Vandring: längd, cykel och hjälm tas bort ur HTML:en och görs frivilliga.
+		if ( 'vandring' === $s['typ'] && ( $is_bike || $is_helmet || $is_height ) ) {
+			return self::make_optional( $tag );
+		}
+		if ( $is_height ) {
+			return $tag;
+		}
 
 		if ( $is_bike ) {
 			$keep = array();
@@ -176,10 +237,7 @@ final class CV_Bokningsval {
 		// i filter_form_html().
 		$key = ( 'cykelforsakring' === $name ) ? 'stold' : 'assistans';
 		if ( empty( $s[ $key ] ) ) {
-			$type     = (string) self::tag_get( $tag, 'type' );
-			$basetype = (string) self::tag_get( $tag, 'basetype' );
-			$tag      = self::tag_set( $tag, 'type', rtrim( $type, '*' ) );
-			$tag      = self::tag_set( $tag, 'basetype', rtrim( $basetype, '*' ) );
+			$tag = self::make_optional( $tag );
 		}
 		return $tag;
 	}
@@ -218,7 +276,10 @@ final class CV_Bokningsval {
 	}
 
 	public static function filter_form_html( $html ) {
-		$s = self::settings_for( self::current_tripcode() );
+		$s = self::current_settings();
+		if ( 'vandring' === $s['typ'] ) {
+			$html = preg_replace( '#<div class="[^"]*\bcvb-cykel\b[^"]*">.*?</div>#s', '', $html );
+		}
 		if ( empty( $s['stold'] ) ) {
 			$html = preg_replace( '#<div class="cvb-stold">.*?</div>#s', '', $html );
 		}
@@ -362,11 +423,18 @@ final class CV_Bokningsval {
 		$orphans  = array_diff_key( $all, $tours );
 		$fields   = self::bool_fields();
 		$helmets  = self::helmet_choices();
+		$types    = self::type_choices();
 		$not_done = 0;
+		$rows     = array();
 		foreach ( $tours as $code => $t ) {
-			if ( empty( $all[ $code ]['klar'] ) ) {
+			$s    = self::settings_for( $code, $t['id'] );
+			$done = ! empty( $all[ $code ]['klar'] );
+			// Vandringsresor behöver inga val, så de räknas inte som ej ifyllda.
+			$todo = ! $done && 'cykel' === $s['typ'];
+			if ( $todo ) {
 				$not_done++;
 			}
+			$rows[ $code ] = array( 's' => $s, 'done' => $done, 'todo' => $todo );
 		}
 		?>
 		<div class="wrap cvb-wrap">
@@ -374,7 +442,8 @@ final class CV_Bokningsval {
 			<?php self::render_notices(); ?>
 			<p>
 				Varje rad är en reskod som finns i en kortkod på sajten. Nya resor dyker upp här automatiskt.
-				Rader som inte är markerade som <strong>Klar</strong> visas i gult och använder standardläget
+				Typen gissas utifrån adressen (<code>/vandra/</code> = vandring). På vandringsresor visas inte längd, cykel och hjälm.
+				Cykelresor som inte är markerade som <strong>Klar</strong> visas i gult och använder standardläget
 				(vanlig cykel + elcykel, hyrhjälm, egen cykel tillåten, inga försäkringar) tills ni sparar dem.
 			</p>
 			<p>
@@ -392,6 +461,7 @@ final class CV_Bokningsval {
 					<thead>
 						<tr>
 							<th>Resa</th>
+							<th>Typ</th>
 							<th>Reskod</th>
 							<th>Hjälm</th>
 							<?php foreach ( $fields as $label ) : ?>
@@ -403,11 +473,12 @@ final class CV_Bokningsval {
 					</thead>
 					<tbody>
 					<?php foreach ( $tours as $code => $tour ) :
-						$s    = self::settings_for( $code );
-						$done = ! empty( $all[ $code ]['klar'] );
+						$s    = $rows[ $code ]['s'];
+						$done = $rows[ $code ]['done'];
 						$n    = 'cvb[' . esc_attr( $code ) . ']';
+						$cls  = ( $rows[ $code ]['todo'] ? 'cvb-todo' : 'cvb-done' ) . ( 'vandring' === $s['typ'] ? ' cvb-hike' : '' );
 						?>
-						<tr class="<?php echo $done ? 'cvb-done' : 'cvb-todo'; ?>" data-search="<?php echo esc_attr( strtolower( $tour['title'] . ' ' . $code ) ); ?>">
+						<tr class="<?php echo esc_attr( $cls ); ?>" data-search="<?php echo esc_attr( strtolower( $tour['title'] . ' ' . $code ) ); ?>">
 							<td>
 								<a href="<?php echo esc_url( get_edit_post_link( $tour['id'] ) ); ?>"><?php echo esc_html( $tour['title'] ); ?></a>
 								<?php if ( 'publish' !== $tour['status'] ) : ?>
@@ -416,11 +487,18 @@ final class CV_Bokningsval {
 								<?php if ( $tour['langs'] ) : ?>
 									<span class="cvb-langs"><?php echo esc_html( strtoupper( implode( ' · ', $tour['langs'] ) ) ); ?></span>
 								<?php endif; ?>
-								<?php if ( ! $done ) : ?><span class="cvb-badge">Ej ifylld</span><?php endif; ?>
+								<?php if ( $rows[ $code ]['todo'] ) : ?><span class="cvb-badge">Ej ifylld</span><?php endif; ?>
 								<input type="hidden" name="<?php echo $n; ?>[present]" value="1">
 							</td>
-							<td><code><?php echo esc_html( $code ); ?></code></td>
 							<td>
+								<select name="<?php echo $n; ?>[typ]" class="cvb-typ">
+									<?php foreach ( $types as $value => $label ) : ?>
+										<option value="<?php echo esc_attr( $value ); ?>" <?php selected( $s['typ'], $value ); ?>><?php echo esc_html( $label ); ?></option>
+									<?php endforeach; ?>
+								</select>
+							</td>
+							<td><code><?php echo esc_html( $code ); ?></code></td>
+							<td class="cvb-bike">
 								<select name="<?php echo $n; ?>[hjalm]">
 									<?php foreach ( $helmets as $value => $label ) : ?>
 										<option value="<?php echo esc_attr( $value ); ?>" <?php selected( $s['hjalm'], $value ); ?>><?php echo esc_html( $label ); ?></option>
@@ -428,7 +506,7 @@ final class CV_Bokningsval {
 								</select>
 							</td>
 							<?php foreach ( $fields as $key => $label ) : ?>
-								<td class="cvb-c"><input type="checkbox" name="<?php echo $n; ?>[<?php echo esc_attr( $key ); ?>]" value="1" <?php checked( ! empty( $s[ $key ] ) ); ?> aria-label="<?php echo esc_attr( $label ); ?>"></td>
+								<td class="cvb-c<?php echo in_array( $key, array( 'vanlig', 'el', 'sportig', 'egen' ), true ) ? ' cvb-bike' : ''; ?>"><input type="checkbox" name="<?php echo $n; ?>[<?php echo esc_attr( $key ); ?>]" value="1" <?php checked( ! empty( $s[ $key ] ) ); ?> aria-label="<?php echo esc_attr( $label ); ?>"></td>
 							<?php endforeach; ?>
 							<td><input type="text" name="<?php echo $n; ?>[kommentar]" value="<?php echo esc_attr( $s['kommentar'] ); ?>" class="regular-text" style="width:100%"></td>
 							<td class="cvb-c"><input type="checkbox" name="<?php echo $n; ?>[klar]" value="1" <?php checked( $done ); ?> aria-label="Klar"></td>
@@ -465,6 +543,7 @@ final class CV_Bokningsval {
 			.cvb-table .cvb-c { text-align: center; }
 			.cvb-table tr.cvb-todo td { background: #fff4ce; }
 			.cvb-badge { display:inline-block; margin-left:6px; padding:1px 6px; border-radius:3px; background:#dba617; color:#fff; font-size:11px; }
+			.cvb-table tr.cvb-hike td.cvb-bike { opacity: .3; }
 			.cvb-langs { margin-left:6px; color:#787c82; font-size:11px; }
 		</style>
 		<script>
@@ -478,6 +557,11 @@ final class CV_Bokningsval {
 					tr.style.display = show ? '' : 'none';
 				} );
 			}
+			document.querySelectorAll( '.cvb-typ' ).forEach( function ( sel ) {
+				sel.addEventListener( 'change', function () {
+					sel.closest( 'tr' ).classList.toggle( 'cvb-hike', sel.value === 'vandring' );
+				} );
+			} );
 			search.addEventListener( 'input', apply );
 			todo.addEventListener( 'change', apply );
 		} )();
@@ -603,6 +687,7 @@ final class CV_Bokningsval {
 
 		$col = array(
 			'resa'      => 'resa',
+			'typ'       => 'typ',
 			'reskod'    => 'reskod',
 			'webbsida'  => 'webbsida',
 			'hjalm'     => 'hjalm',
@@ -656,7 +741,16 @@ final class CV_Bokningsval {
 			}
 
 			$helmet = self::helmet_from_text( $get( 'hjalm' ) );
+			$typ    = self::norm( $get( 'typ' ) );
+			if ( 0 === strpos( $typ, 'vand' ) ) {
+				$typ = 'vandring';
+			} elseif ( 0 === strpos( $typ, 'cyk' ) || 0 === strpos( $typ, 'syk' ) ) {
+				$typ = 'cykel';
+			} else {
+				$typ = isset( $tours[ $code ] ) ? self::guess_type( $tours[ $code ]['id'] ) : 'cykel';
+			}
 			$row    = array(
+				'typ'       => $typ,
 				'hjalm'     => $helmet ? $helmet : 'hyra',
 				'kommentar' => $get( 'kommentar' ),
 			);
@@ -691,13 +785,15 @@ final class CV_Bokningsval {
 
 		$out = fopen( 'php://output', 'w' ); // phpcs:ignore WordPress.WP.AlternativeFunctions
 		fwrite( $out, "\xEF\xBB\xBF" ); // phpcs:ignore WordPress.WP.AlternativeFunctions
-		fputcsv( $out, array( 'Resa', 'Reskod', 'Hjälm', 'Vanlig cykel', 'Elcykel', 'Sportig cykel', 'Egen cykel', 'Stöldförsäkring', 'Assistansförsäkring', 'Kommentar', 'Klar' ) );
+		$types   = self::type_choices();
+		fputcsv( $out, array( 'Resa', 'Typ', 'Reskod', 'Hjälm', 'Vanlig cykel', 'Elcykel', 'Sportig cykel', 'Egen cykel', 'Stöldförsäkring', 'Assistansförsäkring', 'Kommentar', 'Klar' ) );
 		foreach ( $tours as $code => $t ) {
-			$s = self::settings_for( $code );
+			$s = self::settings_for( $code, $t['id'] );
 			fputcsv(
 				$out,
 				array(
 					$t['title'],
+					$types[ $s['typ'] ],
 					$code,
 					$helmets[ $s['hjalm'] ],
 					$s['vanlig'] ? 'TRUE' : 'FALSE',
