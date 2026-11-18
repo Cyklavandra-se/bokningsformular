@@ -1,10 +1,10 @@
-# Cykla & Vandra – Bokningsval
+# Cykla & Vandra – Bokningsformulär cykel
 
 Styr vilka cyklar, hjälmval och försäkringar som visas i bokningsformuläret (Contact Form 7) för varje resa. Styrningen utgår från reskoden (`tripcode`) i kortkoden.
 
 ## Installera
 
-1. Gå till **Tillägg → Lägg till nytt → Ladda upp tillägg**, välj `cv-bokningsval.zip` och aktivera tillägget.
+1. Gå till **Tillägg → Lägg till nytt → Ladda upp tillägg**, välj `bokningsformular-cykel.zip` och aktivera tillägget.
 2. Det dyker upp en ny meny, **Bokningsval**. Där finns alla resor som har en kortkod med `tripcode`, en rad per reskod. Den svenska och den norska versionen av en resa delar samma rad.
 
 ## Läs in arket

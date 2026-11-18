@@ -1,12 +1,12 @@
 <?php
 /**
- * Plugin Name: Cykla & Vandra – Bokningsval
+ * Plugin Name: Cykla & Vandra – Bokningsformulär cykel
  * Description: Styr vilka cykeltyper, hjälmval och försäkringar som visas i bokningsformuläret (Contact Form 7) för varje resa, utifrån reskoden (tripcode) i kortkoden.
  * Version: 1.0.0
  * Author: Cykla & Vandra
  * Requires at least: 6.0
  * Requires PHP: 7.4
- * Text Domain: cv-bokningsval
+ * Text Domain: bokningsformular-cykel
  */
 
 if ( ! defined( 'ABSPATH' ) ) {
@@ -17,7 +17,7 @@ final class CV_Bokningsval {
 
 	const OPTION = 'cvb_settings';
 	const CAP    = 'edit_pages';
-	const SLUG   = 'cv-bokningsval';
+	const SLUG   = 'bokningsformular-cykel';
 
 	/**
 	 * Ordningen på alternativen i formulärets listor. Formuläret måste ha
