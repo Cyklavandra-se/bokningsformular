@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Cykla & Vandra – Bokningsformulär
  * Description: Ett bokningsformulär (Contact Form 7) för både cykel- och vandringsresor. Styr vilka cykeltyper, hjälmval och försäkringar som visas för varje resa, utifrån reskoden (tripcode) i kortkoden.
- * Version: 1.10.0
+ * Version: 1.10.1
  * Author: Cykla & Vandra
  * Requires at least: 6.0
  * Requires PHP: 7.4
@@ -902,9 +902,11 @@ final class CV_Bokningsval {
 		$wanted = isset( $_POST['codes'] ) ? array_map( array( __CLASS__, 'normalize_code' ), (array) wp_unslash( $_POST['codes'] ) ) : array(); // phpcs:ignore WordPress.Security.ValidatedSanitizedInput
 		$all    = ! empty( $_POST['all'] );
 
-		$pages  = 0;
-		$tours  = 0;
-		$failed = array();
+		$pages    = 0;
+		$tours    = 0;
+		$failed   = array();
+		$settings = self::all_settings();
+		$marked   = 0;
 		foreach ( self::find_tours() as $code => $tour ) {
 			if ( ! $all && ! in_array( $code, $wanted, true ) ) {
 				continue;
@@ -932,7 +934,18 @@ final class CV_Bokningsval {
 			}
 			if ( $changed ) {
 				$tours++;
+				// Byt på en enskild resa markerar den som Klar (Pär, 2026-11-18).
+				// Byt alla gör det inte, eftersom Klar betyder att resan är genomgången.
+				if ( ! $all ) {
+					$row             = self::settings_for( $code, $tour['id'] );
+					$row['klar']     = 1;
+					$settings[ $code ] = self::sanitize_row( $row );
+					$marked++;
+				}
 			}
+		}
+		if ( $marked ) {
+			update_option( self::OPTION, $settings, false );
 		}
 
 		$msg = sprintf(
@@ -943,6 +956,9 @@ final class CV_Bokningsval {
 			$tours,
 			1 === $tours ? 'resa' : 'resor'
 		);
+		if ( $marked ) {
+			$msg .= ' Resan är markerad som Klar.';
+		}
 		if ( $failed ) {
 			$msg .= '<br>Kunde inte ändra: ' . esc_html( implode( ', ', array_unique( $failed ) ) ) . '.';
 		}
