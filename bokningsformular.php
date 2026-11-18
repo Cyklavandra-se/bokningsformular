@@ -2,16 +2,20 @@
 /**
  * Plugin Name: Cykla & Vandra – Bokningsformulär
  * Description: Ett bokningsformulär (Contact Form 7) för både cykel- och vandringsresor. Styr vilka cykeltyper, hjälmval och försäkringar som visas för varje resa, utifrån reskoden (tripcode) i kortkoden.
- * Version: 1.0.0
+ * Version: 1.1.0
  * Author: Cykla & Vandra
  * Requires at least: 6.0
  * Requires PHP: 7.4
  * Text Domain: bokningsformular
+ * Update URI: https://github.com/cyklavandra-se/bokningsformular
  */
 
 if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
+
+require_once __DIR__ . '/updater.php';
+CV_Bokningsval_Updater::init( __FILE__ );
 
 final class CV_Bokningsval {
 
@@ -402,6 +406,12 @@ final class CV_Bokningsval {
 	 * Adminsida
 	 * ------------------------------------------------------------------ */
 
+	/** Menyikonen som data-URI, så att WordPress kan färga den efter adminfärgschemat. */
+	public static function menu_icon() {
+		$svg = file_get_contents( __DIR__ . '/assets/menu-icon.svg' ); // phpcs:ignore WordPress.WP.AlternativeFunctions
+		return $svg ? 'data:image/svg+xml;base64,' . base64_encode( $svg ) : 'dashicons-forms';
+	}
+
 	public static function admin_menu() {
 		add_menu_page(
 			'Bokningsval per resa',
@@ -409,7 +419,7 @@ final class CV_Bokningsval {
 			self::CAP,
 			self::SLUG,
 			array( __CLASS__, 'render_page' ),
-			'dashicons-forms',
+			self::menu_icon(),
 			31
 		);
 	}

@@ -1,0 +1,35 @@
+name: Release
+
+# Skapa en release genom att pusha en tagg, t.ex.:
+#   git tag v1.2.0 && git push origin v1.2.0
+# Versionen i tagget måste stämma med "Version:" i bokningsformular.php.
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Kontrollera version
+        run: |
+          TAG="${GITHUB_REF_NAME#v}"
+          HEADER=$(grep -m1 -E '^\s*\*\s*Version:' bokningsformular.php | sed -E 's/.*Version:\s*//' | tr -d '[:space:]')
+          if [ "$TAG" != "$HEADER" ]; then
+            echo "::error::Taggen ($TAG) stämmer inte med Version i bokningsformular.php ($HEADER)."
+            exit 1
+          fi
+
+      - name: Bygg zip
+        run: git archive --format=zip --prefix=bokningsformular/ -o bokningsformular.zip HEAD
+
+      - name: Skapa release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$GITHUB_REF_NAME" bokningsformular.zip --title "$GITHUB_REF_NAME" --generate-notes

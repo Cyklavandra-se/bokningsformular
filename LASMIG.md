@@ -46,3 +46,23 @@ I det norska formuläret får texterna vara på norska, men ordningen, fältnamn
 | Stöld- och assistansförsäkring | Visas bara när rutan är ikryssad |
 
 En cykelresa som saknar inställning får standardläget: vanlig cykel, elcykel och egen cykel, hyrhjälm och inga försäkringar.
+
+## Uppdateringar
+
+Tillägget uppdateras som vilket tillägg som helst under **Tillägg** och **Uppdateringar** i WordPress. Det hämtar den senaste releasen från GitHub (`cyklavandra-se/bokningsformular`) och söker efter nya versioner var sjätte timme. Knappen **Sök igen** under **Kontrollpanel → Uppdateringar** söker direkt.
+
+Så här släpps en ny version:
+
+1. Höj `Version:` överst i `bokningsformular.php`, t.ex. till `1.2.0`, och pusha till `main`.
+2. Skapa och pusha en tagg med samma nummer:
+
+   ```bash
+   git tag v1.2.0
+   git push origin v1.2.0
+   ```
+
+3. GitHub Actions bygger `bokningsformular.zip` och skapar en release. Om taggen och versionen i filen inte stämmer överens stoppas releasen.
+
+Texten i releasen visas under **Visa detaljer → Ändringar** i WordPress. Den går att redigera på GitHub i efterhand.
+
+Version 1.0.0 saknar uppdateringsfunktionen, så version 1.1.0 måste installeras manuellt en gång (ladda upp zip-filen och välj **Ersätt nuvarande med uppladdad**). Därefter kommer uppdateringarna automatiskt.

@@ -1,0 +1,201 @@
+<?php
+/**
+ * Uppdateringar via GitHub.
+ *
+ * Tillägget frågar GitHub efter den senaste releasen och visar den som en
+ * vanlig uppdatering under Tillägg och Uppdateringar i WordPress. Releasen
+ * måste ha filen bokningsformular.zip som bilaga (det sköter GitHub Actions).
+ */
+
+if ( ! defined( 'ABSPATH' ) ) {
+	exit;
+}
+
+final class CV_Bokningsval_Updater {
+
+	const REPO      = 'cyklavandra-se/bokningsformular';
+	const ASSET     = 'bokningsformular.zip';
+	const TRANSIENT = 'cvb_github_release';
+	const CACHE_TTL = 6 * HOUR_IN_SECONDS;
+
+	/** @var string Tilläggets huvudfil, t.ex. bokningsformular/bokningsformular.php */
+	private static $basename;
+
+	/** @var string Absolut sökväg till huvudfilen. */
+	private static $file;
+
+	public static function init( $file ) {
+		self::$file     = $file;
+		self::$basename = plugin_basename( $file );
+
+		// Kopplas till "Update URI: https://github.com/..." i tilläggets huvud (WP 5.8+).
+		add_filter( 'update_plugins_github.com', array( __CLASS__, 'check_update' ), 10, 4 );
+		add_filter( 'plugins_api', array( __CLASS__, 'plugin_info' ), 20, 3 );
+		add_filter( 'upgrader_source_selection', array( __CLASS__, 'fix_folder_name' ), 10, 4 );
+		add_action( 'upgrader_process_complete', array( __CLASS__, 'clear_cache' ), 10, 0 );
+	}
+
+	/** Ikoner som visas i listan över uppdateringar. */
+	public static function icons() {
+		$base = plugins_url( 'assets/', self::$file );
+		return array(
+			'svg' => $base . 'icon.svg',
+			'1x'  => $base . 'icon-128x128.png',
+			'2x'  => $base . 'icon-256x256.png',
+		);
+	}
+
+	/**
+	 * Hämtar senaste releasen från GitHub (sparas i sex timmar).
+	 * "Sök igen" under Uppdateringar hämtar alltid på nytt.
+	 *
+	 * @return array|null
+	 */
+	private static function release() {
+		$force = is_admin() && ! empty( $_GET['force-check'] ); // phpcs:ignore WordPress.Security.NonceVerification
+		$cached = get_transient( self::TRANSIENT );
+		if ( ! $force && is_array( $cached ) ) {
+			return empty( $cached['version'] ) ? null : $cached;
+		}
+
+		$response = wp_remote_get(
+			'https://api.github.com/repos/' . self::REPO . '/releases/latest',
+			array(
+				'timeout' => 10,
+				'headers' => array(
+					'Accept'     => 'application/vnd.github+json',
+					'User-Agent' => 'WordPress/' . get_bloginfo( 'version' ) . '; bokningsformular',
+				),
+			)
+		);
+
+		$release = array();
+		if ( ! is_wp_error( $response ) && 200 === wp_remote_retrieve_response_code( $response ) ) {
+			$data = json_decode( wp_remote_retrieve_body( $response ), true );
+			if ( is_array( $data ) && ! empty( $data['tag_name'] ) && ! empty( $data['assets'] ) ) {
+				foreach ( $data['assets'] as $asset ) {
+					if ( isset( $asset['name'], $asset['browser_download_url'] ) && self::ASSET === $asset['name'] ) {
+						$release = array(
+							'version'   => ltrim( $data['tag_name'], 'vV' ),
+							'package'   => $asset['browser_download_url'],
+							'url'       => $data['html_url'],
+							'changelog' => isset( $data['body'] ) ? (string) $data['body'] : '',
+							'published' => isset( $data['published_at'] ) ? $data['published_at'] : '',
+						);
+						break;
+					}
+				}
+			}
+		}
+
+		// Misslyckade anrop sparas en kortare stund så att GitHub inte frågas vid varje sidladdning.
+		set_transient( self::TRANSIENT, $release, $release ? self::CACHE_TTL : HOUR_IN_SECONDS );
+		return $release ? $release : null;
+	}
+
+	public static function check_update( $update, $plugin_data, $plugin_file, $locales ) {
+		if ( self::$basename !== $plugin_file ) {
+			return $update;
+		}
+		$release = self::release();
+		if ( ! $release ) {
+			return $update;
+		}
+		return array(
+			'id'           => 'github.com/' . self::REPO,
+			'slug'         => dirname( self::$basename ),
+			'plugin'       => self::$basename,
+			'version'      => $release['version'],
+			'new_version'  => $release['version'],
+			'url'          => $release['url'],
+			'package'      => $release['package'],
+			'icons'        => self::icons(),
+			'requires'     => isset( $plugin_data['RequiresWP'] ) ? $plugin_data['RequiresWP'] : '',
+			'requires_php' => isset( $plugin_data['RequiresPHP'] ) ? $plugin_data['RequiresPHP'] : '',
+		);
+	}
+
+	/** Innehållet i rutan "Visa detaljer". */
+	public static function plugin_info( $result, $action, $args ) {
+		if ( 'plugin_information' !== $action || empty( $args->slug ) || dirname( self::$basename ) !== $args->slug ) {
+			return $result;
+		}
+		$release = self::release();
+		if ( ! $release ) {
+			return $result;
+		}
+		$data = get_plugin_data( self::$file, false, false );
+
+		return (object) array(
+			'name'          => $data['Name'],
+			'slug'          => $args->slug,
+			'version'       => $release['version'],
+			'author'        => $data['Author'],
+			'homepage'      => 'https://github.com/' . self::REPO,
+			'requires'      => $data['RequiresWP'],
+			'requires_php'  => $data['RequiresPHP'],
+			'last_updated'  => $release['published'],
+			'download_link' => $release['package'],
+			'icons'         => self::icons(),
+			'sections'      => array(
+				'description' => wpautop( esc_html( $data['Description'] ) ),
+				'changelog'   => self::markdown_to_html( $release['changelog'] ),
+			),
+		);
+	}
+
+	/** Enkel omvandling av releasetexten (rubriker, punktlistor, fetstil, kod). */
+	private static function markdown_to_html( $md ) {
+		if ( '' === trim( $md ) ) {
+			return '<p>Inga ändringar beskrivna.</p>';
+		}
+		$html    = '';
+		$in_list = false;
+		foreach ( preg_split( '/\r\n|\r|\n/', $md ) as $line ) {
+			$text = esc_html( trim( $line ) );
+			$text = preg_replace( '/\*\*(.+?)\*\*/', '<strong>$1</strong>', $text );
+			$text = preg_replace( '/`(.+?)`/', '<code>$1</code>', $text );
+			if ( preg_match( '/^[-*]\s+(.*)$/', $text, $m ) ) {
+				if ( ! $in_list ) {
+					$html   .= '<ul>';
+					$in_list = true;
+				}
+				$html .= '<li>' . $m[1] . '</li>';
+				continue;
+			}
+			if ( $in_list ) {
+				$html   .= '</ul>';
+				$in_list = false;
+			}
+			if ( preg_match( '/^#{1,6}\s+(.*)$/', $text, $m ) ) {
+				$html .= '<h4>' . $m[1] . '</h4>';
+			} elseif ( '' !== $text ) {
+				$html .= '<p>' . $text . '</p>';
+			}
+		}
+		return $in_list ? $html . '</ul>' : $html;
+	}
+
+	/**
+	 * Ser till att den uppackade mappen får samma namn som den installerade,
+	 * även om tillägget ligger i en mapp med ett annat namn.
+	 */
+	public static function fix_folder_name( $source, $remote_source, $upgrader, $hook_extra = array() ) {
+		global $wp_filesystem;
+		if ( empty( $hook_extra['plugin'] ) || self::$basename !== $hook_extra['plugin'] ) {
+			return $source;
+		}
+		$wanted = trailingslashit( $remote_source ) . dirname( self::$basename ) . '/';
+		if ( untrailingslashit( $source ) === untrailingslashit( $wanted ) ) {
+			return $source;
+		}
+		if ( $wp_filesystem && $wp_filesystem->move( $source, $wanted, true ) ) {
+			return $wanted;
+		}
+		return $source;
+	}
+
+	public static function clear_cache() {
+		delete_transient( self::TRANSIENT );
+	}
+}
