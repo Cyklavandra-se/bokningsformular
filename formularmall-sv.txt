@@ -1,0 +1,172 @@
+<h3>Bokning</h3>
+<p>Genom att fylla i formuläret nedan gör ni en bokning. Innan ni går vidare är det därför viktigt att ni har läst hur vi bokar våra självguidade resor – den informationen hittar ni här: <a href="https://cyklavandra.se/information/bokningsprocess/" target="_blank">Bokning av självguidade resor</a>.</p>
+&nbsp;
+<p>Bokningen är bindande om det finns plats, och ett eventuellt senare datumbyte görs endast i nödfall och mot en avgift. Om det inte finns plats försöker vi hitta ett alternativ åt er.</p>
+&nbsp;<br>
+[dynamichidden your-subject "CF7_get_post_var key='title'"]
+
+<label> Förnamn (huvudresenär)
+    [text* mc4wp-FNAME autocomplete:given-name] </label>
+
+<label> Efternamn (huvudresenär)
+    [text* mc4wp-LNAME autocomplete:family-name] </label>
+
+<label> E-postadress
+    [email* your-email autocomplete:email] </label>
+
+<label> Gatuadress
+    [text* hemadress autocomplete:street-address] </label>
+
+<label> Postnummer
+    [text* postnummer autocomplete:postal-code] </label>
+
+<label> Ort
+    [text* ort autocomplete:address-level2] </label>
+
+<label> Telefon
+    [tel* telefon autocomplete:tel] </label>
+
+<label> Ankomstdatum (dag 1 i programmet)
+    [date* datum min:today+7days] </label>
+
+<div class="cvb-stold"><label> Stöldförsäkring hyrcykel (rekommenderas):
+[select* cykelforsakring include_blank "Ja" "Nej"]</label></div>
+
+<div class="cvb-assistans"><label> Assistansförsäkring
+[select* assistansforsakring include_blank "Ja" "Nej"]</label></div>
+
+<label> Rabattkod/Presentkort
+    [text rabattkod] </label>
+
+<label> Övrig information (rumsfördelning, specialkost, allergier etc.)
+    [textarea ovrig-info] </label>
+<hr>
+<label> Antal resenärer
+    [select* antal include_blank "1" "2" "3" "4" "5" "6" "7" "8+"] </label>
+
+
+<p>&nbsp;</p>
+
+<strong>Resenär 1 (huvudresenär)</strong>
+<div class="resenar-rad"><label> Längd (cm) [number* langd-1 min:100 max:220] </label><label> Cykel [select* cykel-1 include_blank "Vanlig cykel" "Elcykel" "Sportig cykel" "Tar med egen"] </label><label> Hjälm [select* hjalm-1 include_blank "Hyr hjälm" "Tar med egen" "Hjälm ingår"] </label></div>
+
+[group resenar-2]
+<p class="faktura-hjalp">Reser ni flera sällskap som vill ha var sin faktura? Skriv in resenärerna sällskap för sällskap och välj ”Separat faktura” för den första i varje sällskap som ska ha egen faktura. Resenärerna under hamnar på samma faktura.</p>
+<strong>Resenär 2</strong>
+<div class="resenar-rad"><label> Förnamn och efternamn [text* namn-2] </label></div>
+<div class="faktura-val-rad">[radio faktura-2 use_label_element default:1 "Ingen egen faktura" "Separat faktura"]</div>
+[group fakturaadress-2]
+<div class="resenar-rad faktura-rad">
+<label class="fa-gata"> Gatuadress [text* gatuadress-2 autocomplete:off] </label>
+<label class="fa-postnr"> Postnummer [text* postnummer-2 autocomplete:off] </label>
+<label class="fa-ort"> Ort [text* ort-2 autocomplete:off] </label>
+<label class="fa-epost"> E-postadress för fakturan [email epost-2 autocomplete:off] </label>
+</div>
+[/group]
+<div class="resenar-rad"><label> Längd (cm) [number* langd-2 min:100 max:220] </label><label> Cykel [select* cykel-2 include_blank "Vanlig cykel" "Elcykel" "Sportig cykel" "Tar med egen"] </label><label> Hjälm [select* hjalm-2 include_blank "Hyr hjälm" "Tar med egen" "Hjälm ingår"] </label></div>
+[/group]
+
+[group resenar-3]
+<strong>Resenär 3</strong>
+<div class="resenar-rad"><label> Förnamn och efternamn [text* namn-3] </label></div>
+<div class="faktura-val-rad">[radio faktura-3 use_label_element default:1 "Ingen egen faktura" "Separat faktura"]</div>
+[group fakturaadress-3]
+<div class="resenar-rad faktura-rad">
+<label class="fa-gata"> Gatuadress [text* gatuadress-3 autocomplete:off] </label>
+<label class="fa-postnr"> Postnummer [text* postnummer-3 autocomplete:off] </label>
+<label class="fa-ort"> Ort [text* ort-3 autocomplete:off] </label>
+<label class="fa-epost"> E-postadress för fakturan [email epost-3 autocomplete:off] </label>
+</div>
+[/group]
+<div class="resenar-rad"><label> Längd (cm) [number* langd-3 min:100 max:220] </label><label> Cykel [select* cykel-3 include_blank "Vanlig cykel" "Elcykel" "Sportig cykel" "Tar med egen"] </label><label> Hjälm [select* hjalm-3 include_blank "Hyr hjälm" "Tar med egen" "Hjälm ingår"] </label></div>
+[/group]
+
+[group resenar-4]
+<strong>Resenär 4</strong>
+<div class="resenar-rad"><label> Förnamn och efternamn [text* namn-4] </label></div>
+<div class="faktura-val-rad">[radio faktura-4 use_label_element default:1 "Ingen egen faktura" "Separat faktura"]</div>
+[group fakturaadress-4]
+<div class="resenar-rad faktura-rad">
+<label class="fa-gata"> Gatuadress [text* gatuadress-4 autocomplete:off] </label>
+<label class="fa-postnr"> Postnummer [text* postnummer-4 autocomplete:off] </label>
+<label class="fa-ort"> Ort [text* ort-4 autocomplete:off] </label>
+<label class="fa-epost"> E-postadress för fakturan [email epost-4 autocomplete:off] </label>
+</div>
+[/group]
+<div class="resenar-rad"><label> Längd (cm) [number* langd-4 min:100 max:220] </label><label> Cykel [select* cykel-4 include_blank "Vanlig cykel" "Elcykel" "Sportig cykel" "Tar med egen"] </label><label> Hjälm [select* hjalm-4 include_blank "Hyr hjälm" "Tar med egen" "Hjälm ingår"] </label></div>
+[/group]
+
+[group resenar-5]
+<strong>Resenär 5</strong>
+<div class="resenar-rad"><label> Förnamn och efternamn [text* namn-5] </label></div>
+<div class="faktura-val-rad">[radio faktura-5 use_label_element default:1 "Ingen egen faktura" "Separat faktura"]</div>
+[group fakturaadress-5]
+<div class="resenar-rad faktura-rad">
+<label class="fa-gata"> Gatuadress [text* gatuadress-5 autocomplete:off] </label>
+<label class="fa-postnr"> Postnummer [text* postnummer-5 autocomplete:off] </label>
+<label class="fa-ort"> Ort [text* ort-5 autocomplete:off] </label>
+<label class="fa-epost"> E-postadress för fakturan [email epost-5 autocomplete:off] </label>
+</div>
+[/group]
+<div class="resenar-rad"><label> Längd (cm) [number* langd-5 min:100 max:220] </label><label> Cykel [select* cykel-5 include_blank "Vanlig cykel" "Elcykel" "Sportig cykel" "Tar med egen"] </label><label> Hjälm [select* hjalm-5 include_blank "Hyr hjälm" "Tar med egen" "Hjälm ingår"] </label></div>
+[/group]
+
+[group resenar-6]
+<strong>Resenär 6</strong>
+<div class="resenar-rad"><label> Förnamn och efternamn [text* namn-6] </label></div>
+<div class="faktura-val-rad">[radio faktura-6 use_label_element default:1 "Ingen egen faktura" "Separat faktura"]</div>
+[group fakturaadress-6]
+<div class="resenar-rad faktura-rad">
+<label class="fa-gata"> Gatuadress [text* gatuadress-6 autocomplete:off] </label>
+<label class="fa-postnr"> Postnummer [text* postnummer-6 autocomplete:off] </label>
+<label class="fa-ort"> Ort [text* ort-6 autocomplete:off] </label>
+<label class="fa-epost"> E-postadress för fakturan [email epost-6 autocomplete:off] </label>
+</div>
+[/group]
+<div class="resenar-rad"><label> Längd (cm) [number* langd-6 min:100 max:220] </label><label> Cykel [select* cykel-6 include_blank "Vanlig cykel" "Elcykel" "Sportig cykel" "Tar med egen"] </label><label> Hjälm [select* hjalm-6 include_blank "Hyr hjälm" "Tar med egen" "Hjälm ingår"] </label></div>
+[/group]
+
+[group resenar-7]
+<strong>Resenär 7</strong>
+<div class="resenar-rad"><label> Förnamn och efternamn [text* namn-7] </label></div>
+<div class="faktura-val-rad">[radio faktura-7 use_label_element default:1 "Ingen egen faktura" "Separat faktura"]</div>
+[group fakturaadress-7]
+<div class="resenar-rad faktura-rad">
+<label class="fa-gata"> Gatuadress [text* gatuadress-7 autocomplete:off] </label>
+<label class="fa-postnr"> Postnummer [text* postnummer-7 autocomplete:off] </label>
+<label class="fa-ort"> Ort [text* ort-7 autocomplete:off] </label>
+<label class="fa-epost"> E-postadress för fakturan [email epost-7 autocomplete:off] </label>
+</div>
+[/group]
+<div class="resenar-rad"><label> Längd (cm) [number* langd-7 min:100 max:220] </label><label> Cykel [select* cykel-7 include_blank "Vanlig cykel" "Elcykel" "Sportig cykel" "Tar med egen"] </label><label> Hjälm [select* hjalm-7 include_blank "Hyr hjälm" "Tar med egen" "Hjälm ingår"] </label></div>
+[/group]
+
+[group resenar-8]
+<strong>Resenär 8</strong>
+<div class="resenar-rad"><label> Förnamn och efternamn [text* namn-8] </label></div>
+<div class="faktura-val-rad">[radio faktura-8 use_label_element default:1 "Ingen egen faktura" "Separat faktura"]</div>
+[group fakturaadress-8]
+<div class="resenar-rad faktura-rad">
+<label class="fa-gata"> Gatuadress [text* gatuadress-8 autocomplete:off] </label>
+<label class="fa-postnr"> Postnummer [text* postnummer-8 autocomplete:off] </label>
+<label class="fa-ort"> Ort [text* ort-8 autocomplete:off] </label>
+<label class="fa-epost"> E-postadress för fakturan [email epost-8 autocomplete:off] </label>
+</div>
+[/group]
+<div class="resenar-rad"><label> Längd (cm) [number* langd-8 min:100 max:220] </label><label> Cykel [select* cykel-8 include_blank "Vanlig cykel" "Elcykel" "Sportig cykel" "Tar med egen"] </label><label> Hjälm [select* hjalm-8 include_blank "Hyr hjälm" "Tar med egen" "Hjälm ingår"] </label></div>
+<em>Är ni fler än 8? Ange namn, längd, cykel och hjälm för övriga resenärer under Övrig information.</em>
+[/group]
+
+<p>&nbsp;</p>
+
+[honeypot cyklavandra-sverige timecheck_enabled:true]
+
+[acceptance villkor] Jag har läst och godkänner <a href="https://cyklavandra.se/information/bokningsprocess/" target="_blank">bokningsvillkoren</a> och är medveten om att bokningen är bindande. [/acceptance]
+<br>
+[acceptance gdpr-samtycke] Jag godkänner att ni sparar mina uppgifter för att hantera bokningen. [/acceptance]
+<br>
+[mc4wp_checkbox "&nbsp;Jag önskar få ert nyhetsbrev."]
+<p>&nbsp;</p>
+[submit "BOKA RESA"]
+
+[hidden tripcode default:shortcode_attr]
