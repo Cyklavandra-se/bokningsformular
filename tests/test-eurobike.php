@@ -137,5 +137,12 @@ ok( 2 === count( $forms ), 'bara formulär med tripcode listas' );
 ok( 'Form 3' === $forms[0]['title'] && $forms[0]['new_template'], 'formulär med nya mallen först' );
 ok( '[contact-form-7 id="abc3" title="Form 3" tripcode="RESKOD"]' === $forms[0]['shortcode'], 'kortkoden får tripcode: ' . $forms[0]['shortcode'] );
 
+echo "\n--- Felaktiga reskoder ---\n";
+ok( '' !== CV_Bokningsval::code_problem( '<span data-sheets-root=' ), 'HTML från Google Sheets upptäcks' );
+ok( '' !== CV_Bokningsval::code_problem( 'Mon May 11 2026 00:00:00 GMT+0200 (Central European Summer Time)' ), 'datum upptäcks' );
+foreach ( array( 'Trip: 05-11', 'DE-MORTK-04A', 'Mjölkvägen & Rallarvägen', 'Paquete Via Verde + senderismo', 'Tour de Dovre 5 days' ) as $okcode ) {
+	ok( '' === CV_Bokningsval::code_problem( $okcode ), "giltig kod: $okcode" );
+}
+
 echo $fel ? "\n$fel FEL\n" : "\nAlla OK\n";
 exit( $fel ? 1 : 0 );

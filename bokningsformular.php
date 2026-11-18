@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Cykla & Vandra – Bokningsformulär
  * Description: Ett bokningsformulär (Contact Form 7) för både cykel- och vandringsresor. Styr vilka cykeltyper, hjälmval och försäkringar som visas för varje resa, utifrån reskoden (tripcode) i kortkoden.
- * Version: 1.5.0
+ * Version: 1.5.1
  * Author: Cykla & Vandra
  * Requires at least: 6.0
  * Requires PHP: 7.4
@@ -274,6 +274,31 @@ final class CV_Bokningsval {
 		return sanitize_text_field( html_entity_decode( (string) $code, ENT_QUOTES, 'UTF-8' ) );
 	}
 
+	/**
+	 * Reskoder som har blivit fel när de klistrades in, t.ex. med HTML från
+	 * Google Sheets (<span data-sheets-root=…) eller som ett datum ("Mon May 11 2026 …").
+	 */
+	public static function code_problem( $code ) {
+		if ( preg_match( '/[<>="]/', $code ) ) {
+			return 'Reskoden innehåller HTML, troligen inklistrad med formatering från Google Sheets. Öppna sidan och skriv in reskoden som vanlig text.';
+		}
+		if ( preg_match( '/\b(Mon|Tue|Wed|Thu|Fri|Sat|Sun) [A-Z][a-z]{2} \d{1,2} \d{4}|GMT[+-]\d{4}/', $code ) ) {
+			return 'Reskoden har blivit ett datum, troligen i Google Sheets. Öppna sidan och skriv in rätt reskod.';
+		}
+		return '';
+	}
+
+	/** Sidans status på svenska. */
+	public static function status_label( $status ) {
+		$labels = array(
+			'draft'   => 'utkast',
+			'pending' => 'väntar på granskning',
+			'private' => 'privat',
+			'future'  => 'schemalagd',
+		);
+		return isset( $labels[ $status ] ) ? $labels[ $status ] : $status;
+	}
+
 	/** Reskoden för formuläret som visas eller skickas just nu. */
 	public static function current_tripcode() {
 		// Vid inskick: det dolda fältet [hidden tripcode default:shortcode_attr].
@@ -516,6 +541,7 @@ final class CV_Bokningsval {
 				'title'  => $main['title'],
 				'id'     => $main['id'],
 				'status' => $main['status'],
+				'published' => in_array( 'publish', wp_list_pluck( $posts, 'status' ), true ),
 				'langs'  => $langs,
 				'count'  => count( $posts ),
 			);
@@ -701,6 +727,12 @@ final class CV_Bokningsval {
 			<p>
 				<strong><?php echo esc_html( count( $tours ) ); ?></strong> resor,
 				<strong><?php echo esc_html( $not_done ); ?></strong> cykelresor ej klara.
+				<?php
+				$bad = array_filter( array_keys( $tours ), array( __CLASS__, 'code_problem' ) );
+				if ( $bad ) :
+					?>
+					<span class="cvb-bad-note"><strong><?php echo count( $bad ); ?></strong> med felaktig reskod, se de röda markeringarna. Formuläret fungerar inte på de sidorna förrän koden är rättad.</span>
+				<?php endif; ?>
 			</p>
 			<p class="cvb-filter">
 				<label>Typ:
@@ -732,8 +764,24 @@ final class CV_Bokningsval {
 							<th class="cvb-c">Klar</th>
 						</tr>
 					</thead>
-					<tbody>
-					<?php foreach ( $tours as $code => $tour ) :
+					<?php
+					$columns = 5 + count( $fields ) + ( self::SHOW_COMMENT ? 1 : 0 );
+					$groups  = array(
+						'published' => array_filter( $tours, function ( $t ) { return ! empty( $t['published'] ); } ),
+						'drafts'    => array_filter( $tours, function ( $t ) { return empty( $t['published'] ); } ),
+					);
+					foreach ( $groups as $group => $group_tours ) :
+						if ( ! $group_tours ) {
+							continue;
+						}
+						if ( 'drafts' === $group ) :
+							?>
+							<tbody class="cvb-drafts">
+							<tr class="cvb-sep"><th colspan="<?php echo (int) $columns; ?>">Ej publicerade sidor <span>(utkast, schemalagda och privata)</span></th></tr>
+						<?php else : ?>
+							<tbody>
+						<?php endif; ?>
+					<?php foreach ( $group_tours as $code => $tour ) :
 						$s    = $rows[ $code ]['s'];
 						$done = $rows[ $code ]['done'];
 						$n    = 'cvb[' . esc_attr( $code ) . ']';
@@ -751,13 +799,16 @@ final class CV_Bokningsval {
 							</td>
 							<td class="cvb-code">
 								<input type="text" name="<?php echo $n; ?>[leverantor]" value="<?php echo esc_attr( $s['leverantor'] ); ?>" list="cvb-suppliers" class="cvb-supplier" placeholder="Leverantör saknas" aria-label="Leverantör">
-								<code><?php echo esc_html( $code ); ?></code>
+								<code<?php echo self::code_problem( $code ) ? ' class="cvb-bad-code"' : ''; ?>><?php echo esc_html( $code ); ?></code>
 							</td>
 							<td>
 								<a href="<?php echo esc_url( get_edit_post_link( $tour['id'] ) ); ?>" title="Redigera sidan"><?php echo esc_html( $tour['title'] ); ?></a>
 								<a href="<?php echo esc_url( get_permalink( $tour['id'] ) ); ?>" class="cvb-view" target="_blank" rel="noopener" title="Visa resans sida" aria-label="Visa resans sida (öppnas i ny flik)">&#8599;</a>
 								<?php if ( 'publish' !== $tour['status'] ) : ?>
-									<em>(<?php echo esc_html( $tour['status'] ); ?>)</em>
+									<em class="cvb-status">(<?php echo esc_html( self::status_label( $tour['status'] ) ); ?>)</em>
+								<?php endif; ?>
+								<?php if ( self::code_problem( $code ) ) : ?>
+									<span class="cvb-badge cvb-bad" title="<?php echo esc_attr( self::code_problem( $code ) ); ?>">Felaktig reskod</span>
 								<?php endif; ?>
 								<?php if ( $tour['langs'] ) : ?>
 									<span class="cvb-langs"><?php echo esc_html( strtoupper( implode( ' · ', $tour['langs'] ) ) ); ?></span>
@@ -785,6 +836,7 @@ final class CV_Bokningsval {
 						</tr>
 					<?php endforeach; ?>
 					</tbody>
+					<?php endforeach; ?>
 				</table>
 				<datalist id="cvb-suppliers">
 					<?php foreach ( $suppliers as $supplier ) : ?>
@@ -829,6 +881,13 @@ final class CV_Bokningsval {
 			.cvb-shortcodes input { width:min(560px, 60vw); }
 			.cvb-old { color:#996800; font-size:12px; }
 			.cvb-help summary, .cvb-box summary { cursor:pointer; color:#2271b1; margin:6px 0; }
+			.cvb-table tr.cvb-sep th { background:#f0f0f1; padding:18px 10px 8px; text-align:left; font-size:14px; font-weight:600; border-top:2px solid #c3c4c7; }
+			.cvb-table tr.cvb-sep th span { font-weight:400; color:#646970; }
+			.cvb-table tbody.cvb-drafts td { opacity:.8; }
+			.cvb-status { color:#646970; }
+			.cvb-badge.cvb-bad { background:#d63638; cursor:help; }
+			.cvb-table code.cvb-bad-code { background:#fcf0f1; color:#8a2424; }
+			.cvb-bad-note { margin-left:8px; color:#8a2424; }
 			.cvb-filter { display:flex; flex-wrap:wrap; gap:8px 16px; align-items:center; }
 			.cvb-shown { color:#646970; }
 			.cvb-table .cvb-code { white-space: nowrap; }
@@ -859,14 +918,22 @@ final class CV_Bokningsval {
 			function apply() {
 				var q = ( search.value || '' ).toLowerCase();
 				var n = 0;
-				document.querySelectorAll( '.cvb-table tbody tr' ).forEach( function ( tr ) {
-					var show = ( ! q || tr.dataset.search.indexOf( q ) !== -1 )
-						&& ( ! typ.value || tr.dataset.typ === typ.value )
-						&& ( ! todo.checked || tr.classList.contains( 'cvb-todo' ) );
-					tr.style.display = show ? '' : 'none';
-					if ( show ) {
-						n++;
+				document.querySelectorAll( '.cvb-table tbody' ).forEach( function ( tbody ) {
+					var visible = 0;
+					tbody.querySelectorAll( 'tr:not(.cvb-sep)' ).forEach( function ( tr ) {
+						var show = ( ! q || tr.dataset.search.indexOf( q ) !== -1 )
+							&& ( ! typ.value || tr.dataset.typ === typ.value )
+							&& ( ! todo.checked || tr.classList.contains( 'cvb-todo' ) );
+						tr.style.display = show ? '' : 'none';
+						if ( show ) {
+							visible++;
+						}
+					} );
+					var sep = tbody.querySelector( 'tr.cvb-sep' );
+					if ( sep ) {
+						sep.style.display = visible ? '' : 'none';
 					}
+					n += visible;
 				} );
 				shown.textContent = 'Visar ' + n + ' resor';
 			}
