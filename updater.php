@@ -29,6 +29,73 @@ final class CV_Bokningsval_Updater {
 		add_filter( 'plugins_api', array( __CLASS__, 'plugin_info' ), 20, 3 );
 		add_filter( 'upgrader_source_selection', array( __CLASS__, 'fix_folder_name' ), 10, 4 );
 		add_action( 'upgrader_process_complete', array( __CLASS__, 'clear_cache' ), 10, 0 );
+
+		// Länkar i listan under Tillägg.
+		add_filter( 'plugin_action_links', array( __CLASS__, 'action_links' ), 10, 2 );
+		add_filter( 'plugin_row_meta', array( __CLASS__, 'row_meta' ), 10, 2 );
+		add_action( 'admin_post_cvb_check_update', array( __CLASS__, 'handle_check_update' ) );
+		add_action( 'admin_notices', array( __CLASS__, 'check_notice' ) );
+	}
+
+	/** "Sök efter uppdatering" under tilläggets namn. */
+	public static function action_links( $links, $file ) {
+		if ( self::basename() !== $file || ! current_user_can( 'update_plugins' ) ) {
+			return $links;
+		}
+		$url     = wp_nonce_url( admin_url( 'admin-post.php?action=cvb_check_update' ), 'cvb_check_update' );
+		$links[] = '<a href="' . esc_url( $url ) . '">Sök efter uppdatering</a>';
+		return $links;
+	}
+
+	/** "Visa detaljer" efter versionsnumret (WordPress lägger bara till den själv när en uppdatering finns). */
+	public static function row_meta( $meta, $file ) {
+		if ( self::basename() !== $file ) {
+			return $meta;
+		}
+		foreach ( $meta as $item ) {
+			if ( false !== strpos( $item, 'open-plugin-details-modal' ) ) {
+				return $meta;
+			}
+		}
+		$url    = self_admin_url( 'plugin-install.php?tab=plugin-information&plugin=' . dirname( self::basename() ) . '&TB_iframe=true&width=600&height=550' );
+		$meta[] = '<a href="' . esc_url( $url ) . '" class="thickbox open-plugin-details-modal">Visa detaljer</a>';
+		return $meta;
+	}
+
+	/** Frågar GitHub direkt och skickar tillbaka till listan över tillägg. */
+	public static function handle_check_update() {
+		if ( ! current_user_can( 'update_plugins' ) ) {
+			wp_die( 'Du har inte behörighet att uppdatera tillägg.' );
+		}
+		check_admin_referer( 'cvb_check_update' );
+
+		self::clear_cache();
+		delete_site_transient( 'update_plugins' );
+		wp_update_plugins();
+
+		$updates = get_site_transient( 'update_plugins' );
+		if ( ! self::release() ) {
+			$result = 'fel';
+		} elseif ( $updates && isset( $updates->response[ self::basename() ] ) ) {
+			$result = 'ny';
+		} else {
+			$result = 'senaste';
+		}
+		wp_safe_redirect( admin_url( 'plugins.php?cvb_check=' . $result ) );
+		exit;
+	}
+
+	public static function check_notice() {
+		$result = isset( $_GET['cvb_check'] ) ? sanitize_key( $_GET['cvb_check'] ) : ''; // phpcs:ignore WordPress.Security.NonceVerification
+		$name   = 'Cykla & Vandra – Bokningsformulär';
+		if ( 'ny' === $result ) {
+			$release = self::release();
+			echo '<div class="notice notice-warning is-dismissible"><p>' . esc_html( $name . ': version ' . $release['version'] . ' finns. Uppdatera i listan nedan.' ) . '</p></div>';
+		} elseif ( 'senaste' === $result ) {
+			echo '<div class="notice notice-success is-dismissible"><p>' . esc_html( $name . ': du har den senaste versionen.' ) . '</p></div>';
+		} elseif ( 'fel' === $result ) {
+			echo '<div class="notice notice-error is-dismissible"><p>' . esc_html( $name . ': kunde inte hämta någon release från GitHub. Försök igen senare.' ) . '</p></div>';
+		}
 	}
 
 	/** Tilläggets huvudfil relativt plugins-mappen, t.ex. bokningsformular/bokningsformular.php */
@@ -121,11 +188,17 @@ final class CV_Bokningsval_Updater {
 		if ( 'plugin_information' !== $action || empty( $args->slug ) || dirname( self::basename() ) !== $args->slug ) {
 			return $result;
 		}
+		$data    = get_plugin_data( self::$file, false, false );
 		$release = self::release();
 		if ( ! $release ) {
-			return $result;
+			// Visa den installerade versionen hellre än att fråga wordpress.org.
+			$release = array(
+				'version'   => $data['Version'],
+				'package'   => '',
+				'changelog' => '',
+				'published' => '',
+			);
 		}
-		$data = get_plugin_data( self::$file, false, false );
 
 		return (object) array(
 			'name'          => $data['Name'],

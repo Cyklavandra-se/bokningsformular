@@ -65,7 +65,7 @@ Om ordningen ändras måste `BIKE_INDEX` och `HELMET_INDEX` uppdateras.
 
 ## Status (2026-11-18)
 
-- v1.0.0 är skriven men **inte testad på sajten** än. v1.1.0 lägger till uppdateringar via GitHub och måste installeras manuellt en gång.
+- v1.0.0 är skriven men **inte testad på sajten** än. v1.1.x lägger till uppdateringar via GitHub. Pär har installerat 1.1.0 manuellt; 1.1.1 lägger till länkarna Inställningar, Sök efter uppdatering och Visa detaljer i listan över tillägg.
 - Nästa steg för Pär:
   1. Installera tillägget och läs in CSV-filen från arket över cykelresorna.
   2. Klistra in mallen i ett cykelformulär och ett vandringsformulär och provboka.

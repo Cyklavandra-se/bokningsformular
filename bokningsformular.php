@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Cykla & Vandra – Bokningsformulär
  * Description: Ett bokningsformulär (Contact Form 7) för både cykel- och vandringsresor. Styr vilka cykeltyper, hjälmval och försäkringar som visas för varje resa, utifrån reskoden (tripcode) i kortkoden.
- * Version: 1.1.0
+ * Version: 1.1.1
  * Author: Cykla & Vandra
  * Requires at least: 6.0
  * Requires PHP: 7.4
@@ -104,6 +104,7 @@ final class CV_Bokningsval {
 
 		if ( is_admin() ) {
 			add_action( 'admin_menu', array( __CLASS__, 'admin_menu' ) );
+			add_filter( 'plugin_action_links', array( __CLASS__, 'settings_link' ), 5, 2 );
 			add_action( 'admin_post_cvb_save', array( __CLASS__, 'handle_save' ) );
 			add_action( 'admin_post_cvb_import', array( __CLASS__, 'handle_import' ) );
 			add_action( 'admin_post_cvb_export', array( __CLASS__, 'handle_export' ) );
@@ -410,6 +411,14 @@ final class CV_Bokningsval {
 	public static function menu_icon() {
 		$svg = file_get_contents( __DIR__ . '/assets/menu-icon.svg' ); // phpcs:ignore WordPress.WP.AlternativeFunctions
 		return $svg ? 'data:image/svg+xml;base64,' . base64_encode( $svg ) : 'dashicons-forms';
+	}
+
+	/** "Inställningar" först under tilläggets namn i listan över tillägg. */
+	public static function settings_link( $links, $file ) {
+		if ( plugin_basename( __FILE__ ) === $file && current_user_can( self::CAP ) ) {
+			array_unshift( $links, '<a href="' . esc_url( admin_url( 'admin.php?page=' . self::SLUG ) ) . '">Inställningar</a>' );
+		}
+		return $links;
 	}
 
 	public static function admin_menu() {
