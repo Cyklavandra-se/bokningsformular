@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Cykla & Vandra – Bokningsformulär
  * Description: Ett bokningsformulär (Contact Form 7) för både cykel- och vandringsresor. Styr vilka cykeltyper, hjälmval och försäkringar som visas för varje resa, utifrån reskoden (tripcode) i kortkoden.
- * Version: 1.6.1
+ * Version: 1.6.2
  * Author: Cykla & Vandra
  * Requires at least: 6.0
  * Requires PHP: 7.4
@@ -867,9 +867,13 @@ final class CV_Bokningsval {
 						$s    = $rows[ $code ]['s'];
 						$done = $rows[ $code ]['done'];
 						$n    = 'cvb[' . esc_attr( $code ) . ']';
-						$cls  = ( $rows[ $code ]['todo'] ? 'cvb-todo' : 'cvb-done' ) . ( 'vandring' === $s['typ'] ? ' cvb-hike' : '' );
+						// Rätt formulär: sidan har bara det officiella formuläret och reskoden är korrekt.
+						$right_form = $official && $tour['forms'] && ! array_diff( $tour['forms'], $official['ids'] ) && ! self::code_problem( $code );
+						$cls        = ( $rows[ $code ]['todo'] ? 'cvb-todo' : 'cvb-done' )
+							. ( $done && $right_form ? ' cvb-ok' : '' )
+							. ( 'vandring' === $s['typ'] ? ' cvb-hike' : '' );
 						?>
-						<tr class="<?php echo esc_attr( $cls ); ?>" data-typ="<?php echo esc_attr( $s['typ'] ); ?>" data-search="<?php echo esc_attr( strtolower( $tour['title'] . ' ' . $code . ' ' . $s['leverantor'] ) ); ?>">
+						<tr class="<?php echo esc_attr( $cls ); ?>" data-right-form="<?php echo $right_form ? '1' : '0'; ?>" data-typ="<?php echo esc_attr( $s['typ'] ); ?>" data-search="<?php echo esc_attr( strtolower( $tour['title'] . ' ' . $code . ' ' . $s['leverantor'] ) ); ?>">
 							<td class="cvb-c cvb-typcell">
 								<input type="hidden" name="<?php echo $n; ?>[typ]" value="<?php echo esc_attr( $s['typ'] ); ?>" class="cvb-typ-input">
 								<button type="button" class="cvb-typ-btn cvb-typ-<?php echo esc_attr( $s['typ'] ); ?>" aria-haspopup="true" aria-expanded="false" title="<?php echo esc_attr( $types[ $s['typ'] ] ); ?> – klicka för att byta"><?php echo esc_html( 'vandring' === $s['typ'] ? 'V' : 'C' ); ?></button>
@@ -973,6 +977,8 @@ final class CV_Bokningsval {
 			.cvb-table th, .cvb-table td { vertical-align: middle; }
 			.cvb-table .cvb-c { text-align: center; }
 			.cvb-table tr.cvb-todo td { background: #fff4ce; }
+			.cvb-table tr.cvb-ok td { background: #e3f5e6; }
+			.cvb-table tr.cvb-ok td:first-child { box-shadow: inset 4px 0 0 #00a32a; }
 			.cvb-badge { display:inline-block; margin-left:6px; padding:1px 6px; border-radius:3px; background:#dba617; color:#fff; font-size:11px; }
 			.cvb-table tr.cvb-hike td.cvb-bike { opacity: .3; }
 			.cvb-langs { margin-left:6px; color:#787c82; font-size:11px; }
@@ -1060,6 +1066,20 @@ final class CV_Bokningsval {
 				} );
 			} );
 
+			// Klar: grön rad när resan är klar och sidan har rätt formulär, gul när en cykelresa inte är klar.
+			function paintRow( tr ) {
+				var done = tr.querySelector( 'input[name$="[klar]"]' ).checked;
+				var bike = tr.querySelector( '.cvb-typ-input' ).value !== 'vandring';
+				tr.classList.toggle( 'cvb-ok', done && tr.dataset.rightForm === '1' );
+				tr.classList.toggle( 'cvb-todo', ! done && bike );
+				tr.classList.toggle( 'cvb-done', done || ! bike );
+			}
+			document.querySelectorAll( '.cvb-table input[name$="[klar]"]' ).forEach( function ( box ) {
+				box.addEventListener( 'change', function () {
+					paintRow( box.closest( 'tr' ) );
+				} );
+			} );
+
 			// Typ: knappen C/V öppnar en liten meny med Cykel och Vandring.
 			var labels = { cykel: 'Cykel', vandring: 'Vandring' };
 			function closeMenus( except ) {
@@ -1095,6 +1115,7 @@ final class CV_Bokningsval {
 					btn.className = 'cvb-typ-btn cvb-typ-' + value;
 					btn.title = labels[ value ] + ' – klicka för att byta';
 					cell.closest( 'tr' ).classList.toggle( 'cvb-hike', value === 'vandring' );
+					paintRow( cell.closest( 'tr' ) );
 					closeMenus();
 					btn.focus();
 				} );
