@@ -16,23 +16,24 @@ final class CV_Bokningsval_Updater {
 	const REPO      = 'cyklavandra-se/bokningsformular';
 	const ASSET     = 'bokningsformular.zip';
 	const TRANSIENT = 'cvb_github_release';
-	const CACHE_TTL = 6 * HOUR_IN_SECONDS;
-
-	/** @var string Tilläggets huvudfil, t.ex. bokningsformular/bokningsformular.php */
-	private static $basename;
+	const CACHE_TTL = 21600; // sex timmar
 
 	/** @var string Absolut sökväg till huvudfilen. */
 	private static $file;
 
 	public static function init( $file ) {
-		self::$file     = $file;
-		self::$basename = plugin_basename( $file );
+		self::$file = $file;
 
 		// Kopplas till "Update URI: https://github.com/..." i tilläggets huvud (WP 5.8+).
 		add_filter( 'update_plugins_github.com', array( __CLASS__, 'check_update' ), 10, 4 );
 		add_filter( 'plugins_api', array( __CLASS__, 'plugin_info' ), 20, 3 );
 		add_filter( 'upgrader_source_selection', array( __CLASS__, 'fix_folder_name' ), 10, 4 );
 		add_action( 'upgrader_process_complete', array( __CLASS__, 'clear_cache' ), 10, 0 );
+	}
+
+	/** Tilläggets huvudfil relativt plugins-mappen, t.ex. bokningsformular/bokningsformular.php */
+	private static function basename() {
+		return plugin_basename( self::$file );
 	}
 
 	/** Ikoner som visas i listan över uppdateringar. */
@@ -89,12 +90,12 @@ final class CV_Bokningsval_Updater {
 		}
 
 		// Misslyckade anrop sparas en kortare stund så att GitHub inte frågas vid varje sidladdning.
-		set_transient( self::TRANSIENT, $release, $release ? self::CACHE_TTL : HOUR_IN_SECONDS );
+		set_transient( self::TRANSIENT, $release, $release ? self::CACHE_TTL : 3600 );
 		return $release ? $release : null;
 	}
 
 	public static function check_update( $update, $plugin_data, $plugin_file, $locales ) {
-		if ( self::$basename !== $plugin_file ) {
+		if ( self::basename() !== $plugin_file ) {
 			return $update;
 		}
 		$release = self::release();
@@ -103,8 +104,8 @@ final class CV_Bokningsval_Updater {
 		}
 		return array(
 			'id'           => 'github.com/' . self::REPO,
-			'slug'         => dirname( self::$basename ),
-			'plugin'       => self::$basename,
+			'slug'         => dirname( self::basename() ),
+			'plugin'       => self::basename(),
 			'version'      => $release['version'],
 			'new_version'  => $release['version'],
 			'url'          => $release['url'],
@@ -117,7 +118,7 @@ final class CV_Bokningsval_Updater {
 
 	/** Innehållet i rutan "Visa detaljer". */
 	public static function plugin_info( $result, $action, $args ) {
-		if ( 'plugin_information' !== $action || empty( $args->slug ) || dirname( self::$basename ) !== $args->slug ) {
+		if ( 'plugin_information' !== $action || empty( $args->slug ) || dirname( self::basename() ) !== $args->slug ) {
 			return $result;
 		}
 		$release = self::release();
@@ -182,10 +183,10 @@ final class CV_Bokningsval_Updater {
 	 */
 	public static function fix_folder_name( $source, $remote_source, $upgrader, $hook_extra = array() ) {
 		global $wp_filesystem;
-		if ( empty( $hook_extra['plugin'] ) || self::$basename !== $hook_extra['plugin'] ) {
+		if ( empty( $hook_extra['plugin'] ) || self::basename() !== $hook_extra['plugin'] ) {
 			return $source;
 		}
-		$wanted = trailingslashit( $remote_source ) . dirname( self::$basename ) . '/';
+		$wanted = trailingslashit( $remote_source ) . dirname( self::basename() ) . '/';
 		if ( untrailingslashit( $source ) === untrailingslashit( $wanted ) ) {
 			return $source;
 		}

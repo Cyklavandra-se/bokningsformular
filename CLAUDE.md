@@ -30,6 +30,14 @@ WordPress-tillägg för cyklavandra.se. Det låter **ett** bokningsformulär i C
 - **Adminsidan** ligger i menyn *Bokningsval* (slug `bokningsformular`). Den hittar resor genom att söka igenom `post_content` efter `tripcode=`, och avkodar även Avadas base64-kodade `[fusion_code]`-block. Där finns också CSV-import (matchar resor via Reskod, Webbsida med `url_to_postid` eller titel) och CSV-export.
 - **Standardläge** för en cykelresa utan inställning: vanlig cykel, elcykel och egen cykel, hyrhjälm, inga försäkringar.
 
+## Uppdateringar (`updater.php`)
+
+- Huvudet har `Update URI: https://github.com/cyklavandra-se/bokningsformular`, och uppdateraren kopplar in sig på `update_plugins_github.com` (WP 5.8+). Den läser `releases/latest` från GitHubs API (publikt repo, ingen token) och sparar svaret i transienten `cvb_github_release` i sex timmar.
+- Releasen måste ha bilagan `bokningsformular.zip` med mappen `bokningsformular/` i roten. `.github/workflows/release.yml` bygger den med `git archive` när en tagg `v*` pushas, och stoppar om taggen inte stämmer med `Version:`.
+- `plugins_api` ger rutan "Visa detaljer" (releasetexten blir ändringslogg). `upgrader_source_selection` döper om den uppackade mappen till den installerade mappens namn.
+- Ikoner: `assets/icon.svg` och PNG i 128 och 256 px (uppdateringslistan), samt `assets/menu-icon.svg` (adminmenyn, som base64-data-URI).
+- **Ny version:** höj `Version:`, pusha till `main`, skapa och pusha taggen `vX.Y.Z`.
+
 ## Kontraktet med formuläret (`formularmall-sv.txt`)
 
 Alternativen styrs efter **position**, inte text. Därför kan det norska formuläret ha norska texter.
@@ -57,7 +65,7 @@ Om ordningen ändras måste `BIKE_INDEX` och `HELMET_INDEX` uppdateras.
 
 ## Status (2026-11-18)
 
-- v1.0.0 är skriven men **inte testad på sajten** än.
+- v1.0.0 är skriven men **inte testad på sajten** än. v1.1.0 lägger till uppdateringar via GitHub och måste installeras manuellt en gång.
 - Nästa steg för Pär:
   1. Installera tillägget och läs in CSV-filen från arket över cykelresorna.
   2. Klistra in mallen i ett cykelformulär och ett vandringsformulär och provboka.
