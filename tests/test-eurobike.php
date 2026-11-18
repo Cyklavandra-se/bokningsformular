@@ -122,25 +122,20 @@ ok( 'Annan' === CV_Bokningsval::settings_for( 'Algarve Coastal Biking', 0 )['lev
 ok( 'nej' === CV_Bokningsval::settings_for( 'DE-MORWT-06', 0 )['hjalm'], 'Velociped-resa: Hjälm erbjuds inte' );
 
 echo "\n--- Kortkod för formulär ---\n";
-if ( ! function_exists( 'get_posts' ) ) {
-	function get_posts( $a ) { return array( (object) array( 'ID' => 1 ), (object) array( 'ID' => 2 ), (object) array( 'ID' => 3 ) ); }
-}
-class Fake_Form {
-	public $id;
-	function __construct( $id ) { $this->id = $id; }
-	function prop( $k ) { return array( 1 => 'utan reskod', 2 => '[hidden tripcode default:shortcode_attr]', 3 => '<div class="resenar-rad cvb-cykel">[hidden tripcode default:shortcode_attr]' )[ $this->id ]; }
-	function title() { return 'Form ' . $this->id; }
-	function id() { return $this->id; }
-	function shortcode() { return '[contact-form-7 id="abc' . $this->id . '" title="Form ' . $this->id . '"]'; }
-}
+$GLOBALS['cf7_posts'] = array(
+	1 => array( 'title' => 'Form 1', '_form' => 'utan reskod', '_hash' => 'abc1xxxxxxxx' ),
+	2 => array( 'title' => 'Form 2', '_form' => '[hidden tripcode default:shortcode_attr]', '_hash' => 'abc2xxxxxxxx' ),
+	3 => array( 'title' => 'Form 3', '_form' => '<div class="resenar-rad cvb-cykel">[hidden tripcode default:shortcode_attr]', '_hash' => 'abc3xxxxxxxx' ),
+);
 $forms = CV_Bokningsval::booking_forms();
 ok( 2 === count( $forms ), 'bara formulär med tripcode listas' );
 ok( 'Form 3' === $forms[0]['title'] && $forms[0]['new_template'], 'formulär med nya mallen först' );
-ok( '[contact-form-7 id="abc3" title="Form 3" tripcode="RESKOD"]' === $forms[0]['shortcode'], 'kortkoden får tripcode: ' . $forms[0]['shortcode'] );
+ok( '[contact-form-7 id="abc3xxx" title="Form 3" tripcode="RESKOD"]' === $forms[0]['shortcode'], 'kortkoden har hashens sju första tecken och tripcode: ' . $forms[0]['shortcode'] );
+ok( empty( $GLOBALS['get_instance_calls'] ), 'WPCF7_ContactForm::get_instance() anropas inte (då visar CF7:s lista fel formulär)' );
 
 $off = CV_Bokningsval::official_form( $forms );
-ok( $off && 'Form 3' === $off['title'] && in_array( 'abc3', $off['ids'], true ) && in_array( '3', $off['ids'], true ), 'det officiella formuläret är det med nya mallen' );
-ok( '[contact-form-7 id="abc3" title="Form 3" tripcode="Trip: 05-11"]' === CV_Bokningsval::shortcode_for( 'Trip: 05-11', $off ), 'kortkod per resa' );
+ok( $off && 'Form 3' === $off['title'] && in_array( 'abc3xxx', $off['ids'], true ) && in_array( '3', $off['ids'], true ), 'det officiella formuläret är det med nya mallen' );
+ok( '[contact-form-7 id="abc3xxx" title="Form 3" tripcode="Trip: 05-11"]' === CV_Bokningsval::shortcode_for( 'Trip: 05-11', $off ), 'kortkod per resa' );
 ok( '' === CV_Bokningsval::shortcode_for( 'X', null ), 'ingen kortkod utan nytt formulär' );
 $ids = CV_Bokningsval::extract_form_ids( '<p>[contact-form-7 id="cdee672" title="Holland" tripcode="Trip 07-06"]</p> [contact-form-7 id="ca124e5" title="Ny" tripcode="DE-X"] [contact-form-7 id=&quot;99&quot; tripcode=&quot;IT-Y&quot;]' );
 ok( array( 'Trip 07-06' => array( 'cdee672' ), 'DE-X' => array( 'ca124e5' ), 'IT-Y' => array( '99' ) ) === $ids, 'formulär-id per reskod: ' . json_encode( $ids ) );

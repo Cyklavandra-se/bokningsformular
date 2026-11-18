@@ -9,7 +9,6 @@ function ok( $villkor, $text ) {
 		$fel++;
 	}
 }
-function get_post_meta( $id, $k, $single ) { return $GLOBALS['meta'][ $id ] ?? ''; }
 function get_the_title( $id ) { return 'Formulär ' . $id; }
 
 $sv = file_get_contents( __DIR__ . '/../formularmall-sv.txt' );
@@ -80,7 +79,7 @@ $GLOBALS['filter_returns'] = array(
 	'wpml_active_languages'         => array( 'sv' => array(), 'no' => array(), 'de' => array(), 'en' => array() ),
 );
 // Den tyska översättningen saknar tripcode helt (finns inte i listan över bokningsformulär).
-$GLOBALS['meta'][36500] = str_replace( '[hidden tripcode default:shortcode_attr]', '', $sv );
+$GLOBALS['cf7_posts'][36500]['_form'] = str_replace( '[hidden tripcode default:shortcode_attr]', '', $sv );
 
 $off = CV_Bokningsval::official_form( $forms );
 ok( 36488 === $off['post_id'], 'originalet är det svenska formuläret' );
@@ -110,21 +109,15 @@ $iss = CV_Bokningsval::translation_issues( CV_Bokningsval::official_form( $forms
 ok( ! $iss['missing'] && ! $iss['differs'], 'utan WPML: ingen varning' );
 
 echo "\n--- Påminnelse i admin ---\n";
-class Fake_Form {
-	public $id;
-	function __construct( $id ) { $this->id = $id; }
-	function prop( $k ) { return $GLOBALS['bodies'][ $this->id ]; }
-	function title() { return 'Bokningsformulär självguidade v1.0'; }
-	function id() { return $this->id; }
-	function shortcode() { return '[contact-form-7 id="ca124e5" title="Bokningsformulär självguidade v1.0"]'; }
-}
-function get_posts( $a ) { return array_map( function ( $id ) { return (object) array( 'ID' => $id ); }, array_keys( $GLOBALS['bodies'] ) ); }
 function current_user_can( $c ) { return true; }
 function get_current_screen() { return (object) array( 'id' => $GLOBALS['screen'] ); }
 function esc_html( $s ) { return htmlspecialchars( $s ); }
 function esc_url( $s ) { return $s; }
 function admin_url( $p ) { return '/wp-admin/' . $p; }
-$GLOBALS['bodies']         = array( 36488 => $sv, 36490 => $utan_hjalm );
+$GLOBALS['cf7_posts'] = array(
+	36488 => array( 'title' => 'Bokningsformulär självguidade v1.0', '_form' => $sv, '_hash' => 'ca124e5aaaa' ),
+	36490 => array( 'title' => 'Bokningsformulär självguidade v1.0', '_form' => $utan_hjalm, '_hash' => 'ca124e5aaaa' ),
+);
 $GLOBALS['filter_returns'] = array(
 	'wpml_default_language'         => 'sv',
 	'wpml_post_language_details'    => null,
@@ -142,12 +135,14 @@ foreach ( array( 'toplevel_page_wpcf7' => true, 'dashboard' => true, 'edit-page'
 	$out = ob_get_clean();
 	ok( $visas === ( '' !== $out ), "påminnelse på $scr: " . ( $out ? strip_tags( $out ) : 'ingen' ) );
 }
-$GLOBALS['bodies'][36490]  = $no;
+$GLOBALS['cf7_posts'][36490]['_form'] = $no;
 $GLOBALS['filter_returns']['wpml_active_languages'] = array( 'sv' => array(), 'no' => array() );
 $GLOBALS['screen'] = 'dashboard';
 ob_start();
 CV_Bokningsval::translation_notice();
 ok( '' === ob_get_clean(), 'ingen påminnelse när allt stämmer' );
+
+ok( empty( $GLOBALS['get_instance_calls'] ), 'påminnelsen anropar inte WPCF7_ContactForm::get_instance()' );
 
 echo $fel ? "\n$fel FEL\n" : "\nAlla OK\n";
 exit( $fel ? 1 : 0 );

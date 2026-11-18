@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Cykla & Vandra – Bokningsformulär
  * Description: Ett bokningsformulär (Contact Form 7) för både cykel- och vandringsresor. Styr vilka cykeltyper, hjälmval och försäkringar som visas för varje resa, utifrån reskoden (tripcode) i kortkoden.
- * Version: 1.7.1
+ * Version: 1.7.2
  * Author: Cykla & Vandra
  * Requires at least: 6.0
  * Requires PHP: 7.4
@@ -705,11 +705,10 @@ final class CV_Bokningsval {
 			)
 		);
 		foreach ( $posts as $post ) {
-			$form = WPCF7_ContactForm::get_instance( $post );
-			if ( ! $form ) {
-				continue;
-			}
-			$body = (string) $form->prop( 'form' );
+			// Läs formuläret direkt i stället för med WPCF7_ContactForm::get_instance().
+			// get_instance() gör formuläret till CF7:s "aktuella formulär", och då visar
+			// CF7:s listsida det formuläret för redigering i stället för listan.
+			$body = (string) get_post_meta( $post->ID, '_form', true );
 			if ( false === strpos( $body, 'tripcode' ) ) {
 				continue;
 			}
@@ -718,17 +717,19 @@ final class CV_Bokningsval {
 			if ( is_array( $details ) && ! empty( $details['language_code'] ) ) {
 				$lang = strtoupper( $details['language_code'] );
 			}
-			$ids = array( (string) $form->id() );
-			if ( preg_match( '/\bid="([^"]+)"/', $form->shortcode(), $idm ) ) {
-				$ids[] = $idm[1];
-			}
+			// CF7 använder de första sju tecknen i formulärets hash som id i kortkoden.
+			$hash      = (string) get_post_meta( $post->ID, '_hash', true );
+			$short_id  = '' !== $hash ? substr( $hash, 0, 7 ) : (string) $post->ID;
+			$title     = (string) $post->post_title;
+			$shortcode = sprintf( '[contact-form-7 id="%s" title="%s"]', $short_id, str_replace( '"', '', $title ) );
+			$ids       = array_values( array_unique( array( (string) $post->ID, $short_id ) ) );
 			$forms[] = array(
 				'post_id'      => (int) $post->ID,
 				'body'         => $body,
 				'ids'          => $ids,
-				'title'        => $form->title(),
+				'title'        => $title,
 				'lang'         => $lang,
-				'shortcode'    => preg_replace( '/\]$/', ' tripcode="RESKOD"]', $form->shortcode() ),
+				'shortcode'    => preg_replace( '/\]$/', ' tripcode="RESKOD"]', $shortcode ),
 				'new_template' => false !== strpos( $body, 'cvb-cykel' ),
 				'old_helmet'   => false !== strpos( $body, '"Hjälm ingår"' ),
 			);
