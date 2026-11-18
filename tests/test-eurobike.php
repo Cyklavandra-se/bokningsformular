@@ -162,6 +162,21 @@ $no = CV_Bokningsval::filter_form_tag( mk( 'select*', 'hjalm-1', array( 'Leie hj
 ok( array( 'Hjelm inkludert', 'Tar med egen' ) === $no->labels, 'norsk text rörs inte' );
 WPCF7_ContactForm::$attr = '';
 
+echo "\n--- Utan reskod (valideringsschemat i webbläsaren) ---\n";
+WPCF7_ContactForm::$attr = '';
+$_POST = array();
+$h = mk( 'select*', 'hjalm-1', array( 'Hyr hjälm', 'Tar med egen', 'Hjälm (gratis)' ) );
+ok( $h === CV_Bokningsval::filter_form_tag( $h ), 'hjälm: alla alternativ kvar utan reskod' );
+$c = mk( 'select*', 'cykel-1', array( 'Vanlig cykel', 'Elcykel', 'Sportig cykel', 'Tar med egen' ) );
+ok( $c === CV_Bokningsval::filter_form_tag( $c ), 'cykel: alla alternativ kvar utan reskod' );
+$html = '<div class="cvb-stold">x</div><div class="resenar-rad cvb-cykel">y</div>';
+ok( $html === CV_Bokningsval::filter_form_html( $html ), 'HTML orörd utan reskod' );
+$GLOBALS['cur'] = 0; // Ingen vandringssida från tidigare tester.
+$_POST = array( '_wpcf7' => 1, 'tripcode' => 'DE-MORTK-04A' );
+$r = CV_Bokningsval::filter_form_tag( mk( 'select*', 'hjalm-1', array( 'Hyr hjälm', 'Tar med egen', 'Hjälm (gratis)' ) ) );
+ok( array( 'Tar med egen' ) === $r->values, 'vid inskick med reskod begränsas valen som förut: ' . implode( '/', $r->values ) );
+$_POST = array();
+
 echo "\n--- Felaktiga reskoder ---\n";
 ok( '' !== CV_Bokningsval::code_problem( '<span data-sheets-root=' ), 'HTML från Google Sheets upptäcks' );
 ok( '' !== CV_Bokningsval::code_problem( 'Mon May 11 2026 00:00:00 GMT+0200 (Central European Summer Time)' ), 'datum upptäcks' );

@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Cykla & Vandra – Bokningsformulär
  * Description: Ett bokningsformulär (Contact Form 7) för både cykel- och vandringsresor. Styr vilka cykeltyper, hjälmval och försäkringar som visas för varje resa, utifrån reskoden (tripcode) i kortkoden.
- * Version: 1.7.0
+ * Version: 1.7.1
  * Author: Cykla & Vandra
  * Requires at least: 6.0
  * Requires PHP: 7.4
@@ -353,6 +353,15 @@ final class CV_Bokningsval {
 			return $tag;
 		}
 
+		// Utan reskod lämnas formuläret orört. Det gäller bl.a. när Contact Form 7
+		// bygger valideringsschemat som webbläsaren hämtar separat (REST, utan
+		// kortkod och utan inskick). Annars godkänner webbläsaren bara standardlägets
+		// alternativ och visar "Odefinierat värde skickades via detta fält" för t.ex.
+		// "Hjälm (gratis)" och "Sportig cykel". Vid visning och inskick finns reskoden.
+		if ( '' === self::current_tripcode() ) {
+			return $tag;
+		}
+
 		$s = self::current_settings();
 
 		// Vandring: längd, cykel och hjälm tas bort ur HTML:en och görs frivilliga.
@@ -436,6 +445,9 @@ final class CV_Bokningsval {
 	}
 
 	public static function filter_form_html( $html ) {
+		if ( '' === self::current_tripcode() ) {
+			return $html;
+		}
 		$s = self::current_settings();
 		if ( 'vandring' === $s['typ'] ) {
 			$html = preg_replace( '#<div class="[^"]*\bcvb-cykel\b[^"]*">.*?</div>#s', '', $html );
