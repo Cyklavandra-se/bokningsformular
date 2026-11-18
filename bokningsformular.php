@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Cykla & Vandra – Bokningsformulär
  * Description: Ett bokningsformulär (Contact Form 7) för både cykel- och vandringsresor. Styr vilka cykeltyper, hjälmval och försäkringar som visas för varje resa, utifrån reskoden (tripcode) i kortkoden.
- * Version: 1.3.3
+ * Version: 1.4.0
  * Author: Cykla & Vandra
  * Requires at least: 6.0
  * Requires PHP: 7.4
@@ -14,6 +14,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
+require_once __DIR__ . '/cyklavandra-meny.php';
 require_once __DIR__ . '/updater.php';
 CV_Bokningsval_Updater::init( __FILE__ );
 
@@ -150,6 +151,7 @@ final class CV_Bokningsval {
 		if ( is_admin() ) {
 			add_action( 'admin_init', array( __CLASS__, 'migrate' ) );
 			add_action( 'admin_menu', array( __CLASS__, 'admin_menu' ) );
+			add_filter( 'cyklavandra_verktyg', array( __CLASS__, 'tool_card' ) );
 			add_filter( 'plugin_action_links', array( __CLASS__, 'settings_link' ), 5, 2 );
 			add_action( 'admin_post_cvb_save', array( __CLASS__, 'handle_save' ) );
 			add_action( 'admin_post_cvb_import', array( __CLASS__, 'handle_import' ) );
@@ -507,12 +509,6 @@ final class CV_Bokningsval {
 	 * Adminsida
 	 * ------------------------------------------------------------------ */
 
-	/** Menyikonen som data-URI, så att WordPress kan färga den efter adminfärgschemat. */
-	public static function menu_icon() {
-		$svg = file_get_contents( __DIR__ . '/assets/menu-icon.svg' ); // phpcs:ignore WordPress.WP.AlternativeFunctions
-		return $svg ? 'data:image/svg+xml;base64,' . base64_encode( $svg ) : 'dashicons-forms';
-	}
-
 	/** "Inställningar" först under tilläggets namn i listan över tillägg. */
 	public static function settings_link( $links, $file ) {
 		if ( plugin_basename( __FILE__ ) === $file && current_user_can( self::CAP ) ) {
@@ -522,15 +518,30 @@ final class CV_Bokningsval {
 	}
 
 	public static function admin_menu() {
-		add_menu_page(
-			'Bokningsval per resa',
-			'Bokningsval',
+		add_submenu_page(
+			Cyklavandra_Meny::SLUG,
+			'Bokningsformulär',
+			'Bokningsformulär',
 			self::CAP,
 			self::SLUG,
-			array( __CLASS__, 'render_page' ),
-			self::menu_icon(),
-			31
+			array( __CLASS__, 'render_page' )
 		);
+	}
+
+	/** Kortet på översiktssidan under Cykla&Vandra. */
+	public static function tool_card( $verktyg ) {
+		if ( ! current_user_can( self::CAP ) ) {
+			return $verktyg;
+		}
+		$data      = function_exists( 'get_plugin_data' ) ? get_plugin_data( __FILE__, false, false ) : array();
+		$verktyg[] = array(
+			'titel'       => 'Bokningsformulär',
+			'beskrivning' => 'Styr vilka cyklar, hjälmval och försäkringar som visas i bokningsformuläret för varje resa.',
+			'url'         => admin_url( 'admin.php?page=' . self::SLUG ),
+			'version'     => isset( $data['Version'] ) ? $data['Version'] : '',
+			'ikon'        => plugins_url( 'assets/icon.svg', __FILE__ ),
+		);
+		return $verktyg;
 	}
 
 	public static function render_page() {
@@ -559,7 +570,7 @@ final class CV_Bokningsval {
 		sort( $suppliers );
 		?>
 		<div class="wrap cvb-wrap">
-			<h1>Bokningsval per resa</h1>
+			<h1>Bokningsformulär</h1>
 			<?php self::render_notices(); ?>
 			<p>
 				Varje rad är en reskod som finns i en kortkod på sajten. Nya resor dyker upp här automatiskt.

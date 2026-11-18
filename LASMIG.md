@@ -5,9 +5,9 @@ Ett gemensamt bokningsformulär (Contact Form 7) för både cykel- och vandrings
 ## Installera
 
 1. Gå till **Tillägg → Lägg till nytt → Ladda upp tillägg**, välj `bokningsformular.zip` och aktivera tillägget.
-2. Det dyker upp en ny meny, **Bokningsval**. Där finns alla resor som har en kortkod med `tripcode`, en rad per reskod. Den svenska och den norska versionen av en resa delar samma rad.
+2. Tillägget hamnar under menyn **Cykla&Vandra → Bokningsformulär** i vänsterspalten. Där finns alla resor som har en kortkod med `tripcode`, en rad per reskod. Den svenska och den norska versionen av en resa delar samma rad.
 
-## Sidan Bokningsval
+## Sidan Bokningsformulär
 
 Överst finns filtret **Typ** och sökrutan. Som standard visas bara cykelresorna. Välj **Vandring** eller **Alla** för att se fler. Kryssa i **Klar** när en resa är genomgången. Pilen ↗ bredvid resans namn öppnar resans sida i en ny flik, och namnet öppnar sidan för redigering.
 
@@ -24,7 +24,7 @@ På vandringsresor försvinner raden med längd, cykel och hjälm för varje res
 ## Läs in arket
 
 1. Ladda ner arket från Claude som CSV.
-2. Gå till **Bokningsval → Importera CSV**.
+2. Gå till **Cykla&Vandra → Bokningsformulär → Importera CSV**.
 3. Resorna matchas mot sajten via kolumnen *Webbsida*. Om det inte går används resans namn.
 4. Rader där hjälmvalet är ifyllt markeras som **Klar**, om filen inte har en egen kolumn **Klar** (eller **Kollad**).
 5. Bara kolumnerna som finns i filen ändras. Övriga inställningar för resan behålls.
@@ -35,7 +35,7 @@ På vandringsresor försvinner raden med längd, cykel och hjälm för varje res
 Varje resa har en kolumn **Leverantör**. Den fylls i från arket *Booking Codes*:
 
 1. Öppna fliken **BIKE** och välj **Arkiv → Ladda ned → Kommaavgränsade värden (.csv)**.
-2. Läs in filen under **Bokningsval → Importera CSV**. Resorna matchas via **Tripcode** och annars via **Vår hemsida**.
+2. Läs in filen under **Cykla&Vandra → Bokningsformulär → Importera CSV**. Resorna matchas via **Tripcode** och annars via **Vår hemsida**.
 3. Gör likadant med fliken **HIKE**.
 
 Bara leverantören ändras, eftersom arket inte har några kolumner för hjälm eller cyklar. Rader i arket som inte finns på sajten listas efter importen. Leverantören går också att skriva in direkt i tabellen, och sökrutan söker även på leverantör.
@@ -72,6 +72,10 @@ I det norska formuläret får texterna vara på norska, men ordningen, fältnamn
 | Stöld- och assistansförsäkring | Visas bara när rutan är ikryssad |
 
 En cykelresa som saknar inställning får standardläget: vanlig cykel, elcykel och egen cykel, hyrhjälm och inga försäkringar.
+
+## Menyn Cykla&Vandra
+
+Cykla & Vandras egna tillägg samlas under rubriken **Cykla&Vandra** högt upp i vänsterspalten. Där finns en översikt med alla verktyg. Menyn kommer från filen `cyklavandra-meny.php`, som andra tillägg kan ta med oförändrad för att hamna under samma rubrik.
 
 ## Uppdateringar
 
