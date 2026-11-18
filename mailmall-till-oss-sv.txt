@@ -1,0 +1,106 @@
+BOKNING
+Resa: [_post_url]
+Bokningskod: [tripcode]
+Önskat startdatum: [datum]
+Antal resenärer: [antal]
+Rabattkod/Presentkort: [rabattkod]
+[cvb-stold]Cykelförsäkring: [cykelforsakring]
+[/cvb-stold][cvb-assistans]Assistansförsäkring: [assistansforsakring]
+[/cvb-assistans]
+BOKARE
+Namn: [mc4wp-FNAME] [mc4wp-LNAME]
+E-post: [your-email]
+Telefon: [telefon]
+Adress: [hemadress]
+Postnummer: [postnummer]
+Ort: [ort]
+
+RESENÄR 1
+Namn: [mc4wp-FNAME] [mc4wp-LNAME]
+[cvb-cykel]Längd: [langd-1] cm
+Cykel: [cykel-1]
+Hjälm: [hjalm-1]
+[/cvb-cykel]Faktura: Ingen egen faktura
+[resenar-2]
+RESENÄR 2
+Namn: [namn-2]
+[cvb-cykel]Längd: [langd-2] cm
+Cykel: [cykel-2]
+Hjälm: [hjalm-2]
+[/cvb-cykel]Faktura: [faktura-2]
+[fakturaadress-2]Faktura e-post: [epost-2]
+Faktura adress: [gatuadress-2]
+Faktura postnummer: [postnummer-2]
+Faktura ort: [ort-2]
+[/fakturaadress-2][/resenar-2][resenar-3]
+RESENÄR 3
+Namn: [namn-3]
+[cvb-cykel]Längd: [langd-3] cm
+Cykel: [cykel-3]
+Hjälm: [hjalm-3]
+[/cvb-cykel]Faktura: [faktura-3]
+[fakturaadress-3]Faktura e-post: [epost-3]
+Faktura adress: [gatuadress-3]
+Faktura postnummer: [postnummer-3]
+Faktura ort: [ort-3]
+[/fakturaadress-3][/resenar-3][resenar-4]
+RESENÄR 4
+Namn: [namn-4]
+[cvb-cykel]Längd: [langd-4] cm
+Cykel: [cykel-4]
+Hjälm: [hjalm-4]
+[/cvb-cykel]Faktura: [faktura-4]
+[fakturaadress-4]Faktura e-post: [epost-4]
+Faktura adress: [gatuadress-4]
+Faktura postnummer: [postnummer-4]
+Faktura ort: [ort-4]
+[/fakturaadress-4][/resenar-4][resenar-5]
+RESENÄR 5
+Namn: [namn-5]
+[cvb-cykel]Längd: [langd-5] cm
+Cykel: [cykel-5]
+Hjälm: [hjalm-5]
+[/cvb-cykel]Faktura: [faktura-5]
+[fakturaadress-5]Faktura e-post: [epost-5]
+Faktura adress: [gatuadress-5]
+Faktura postnummer: [postnummer-5]
+Faktura ort: [ort-5]
+[/fakturaadress-5][/resenar-5][resenar-6]
+RESENÄR 6
+Namn: [namn-6]
+[cvb-cykel]Längd: [langd-6] cm
+Cykel: [cykel-6]
+Hjälm: [hjalm-6]
+[/cvb-cykel]Faktura: [faktura-6]
+[fakturaadress-6]Faktura e-post: [epost-6]
+Faktura adress: [gatuadress-6]
+Faktura postnummer: [postnummer-6]
+Faktura ort: [ort-6]
+[/fakturaadress-6][/resenar-6][resenar-7]
+RESENÄR 7
+Namn: [namn-7]
+[cvb-cykel]Längd: [langd-7] cm
+Cykel: [cykel-7]
+Hjälm: [hjalm-7]
+[/cvb-cykel]Faktura: [faktura-7]
+[fakturaadress-7]Faktura e-post: [epost-7]
+Faktura adress: [gatuadress-7]
+Faktura postnummer: [postnummer-7]
+Faktura ort: [ort-7]
+[/fakturaadress-7][/resenar-7][resenar-8]
+RESENÄR 8
+Namn: [namn-8]
+[cvb-cykel]Längd: [langd-8] cm
+Cykel: [cykel-8]
+Hjälm: [hjalm-8]
+[/cvb-cykel]Faktura: [faktura-8]
+[fakturaadress-8]Faktura e-post: [epost-8]
+Faktura adress: [gatuadress-8]
+Faktura postnummer: [postnummer-8]
+Faktura ort: [ort-8]
+[/fakturaadress-8][/resenar-8]
+ÖVRIGT
+Övrig info: [ovrig-info]
+Godkänt villkor: Ja
+-- 
+Mailet skickat från Cykla & Vandra ([_site_url])

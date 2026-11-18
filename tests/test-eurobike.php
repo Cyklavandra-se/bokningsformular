@@ -253,6 +253,14 @@ ok( false !== strpos( $e, '[langd-1] cm, [cykel-1], hjälm: [hjalm-1]' ) && fals
 $n = CV_Bokningsval::apply_mail_blocks( $tpl, CV_Bokningsval::settings_for( 'NL', 0 ) );
 ok( false !== strpos( $n, "Cykelförsäkring: [cykelforsakring]\nAssistansförsäkring: [assistansforsakring]\n\nResenärer:" ) && false === strpos( $n, 'Observera' ), 'Holland: båda försäkringarna, ingen hjälmtext' );
 
+echo "\n--- Mailet till oss (mailmall-till-oss-sv.txt) ---\n";
+$tpl = file_get_contents( __DIR__ . '/../mailmall-till-oss-sv.txt' );
+$v   = CV_Bokningsval::apply_mail_blocks( $tpl, CV_Bokningsval::settings_for( 'VAND', 0 ) );
+ok( false === strpos( $v, 'Längd' ) && false === strpos( $v, 'Hjälm:' ) && false === strpos( $v, 'försäkring' ) && false === strpos( $v, '[cvb-' ), 'vandring: inget om cykel, hjälm eller försäkring' );
+ok( false !== strpos( $v, "Rabattkod/Presentkort: [rabattkod]\n\nBOKARE" ) && false !== strpos( $v, "Namn: [namn-8]\nFaktura: [faktura-8]" ), 'vandring: tomraden före BOKARE och namn och faktura finns kvar' );
+$n = CV_Bokningsval::apply_mail_blocks( $tpl, CV_Bokningsval::settings_for( 'NL', 0 ) );
+ok( false !== strpos( $n, "Assistansförsäkring: [assistansforsakring]\n\nBOKARE" ) && false !== strpos( $n, "Hjälm: [hjalm-8]\nFaktura: [faktura-8]" ), 'Holland: försäkringar och cykelrader' );
+
 echo "\n--- Felaktiga reskoder ---\n";
 ok( '' !== CV_Bokningsval::code_problem( '<span data-sheets-root=' ), 'HTML från Google Sheets upptäcks' );
 ok( '' !== CV_Bokningsval::code_problem( 'Mon May 11 2026 00:00:00 GMT+0200 (Central European Summer Time)' ), 'datum upptäcks' );
