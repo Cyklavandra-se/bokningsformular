@@ -48,7 +48,7 @@
 <p>&nbsp;</p>
 
 <strong>Resenär 1 (huvudresenär)</strong>
-<div class="resenar-rad cvb-cykel"><label> Längd (cm) [number* langd-1 min:100 max:220] </label><label> Cykel [select* cykel-1 include_blank "Vanlig cykel" "Elcykel" "Sportig cykel" "Tar med egen"] </label><label> Hjälm [select* hjalm-1 include_blank "Hyr hjälm" "Tar med egen" "Hjälm (gratis)"] </label></div>
+<div class="resenar-rad cvb-cykel"><label> Längd (cm) [number* langd-1 min:100 max:220] </label><label> Cykel [select* cykel-1 include_blank "Vanlig cykel" "Elcykel" "Sportig cykel" "Tar med egen" "Gravelcykel"] </label><label> Hjälm [select* hjalm-1 include_blank "Hyr hjälm" "Tar med egen" "Hjälm (gratis)"] </label></div>
 
 [group resenar-2]
 <p class="faktura-hjalp">Reser ni flera sällskap som vill ha var sin faktura? Skriv in resenärerna sällskap för sällskap och välj ”Separat faktura” för den första i varje sällskap som ska ha egen faktura. Resenärerna under hamnar på samma faktura.</p>
@@ -63,7 +63,7 @@
 <label class="fa-epost"> E-postadress för fakturan [email epost-2 autocomplete:off] </label>
 </div>
 [/group]
-<div class="resenar-rad cvb-cykel"><label> Längd (cm) [number* langd-2 min:100 max:220] </label><label> Cykel [select* cykel-2 include_blank "Vanlig cykel" "Elcykel" "Sportig cykel" "Tar med egen"] </label><label> Hjälm [select* hjalm-2 include_blank "Hyr hjälm" "Tar med egen" "Hjälm (gratis)"] </label></div>
+<div class="resenar-rad cvb-cykel"><label> Längd (cm) [number* langd-2 min:100 max:220] </label><label> Cykel [select* cykel-2 include_blank "Vanlig cykel" "Elcykel" "Sportig cykel" "Tar med egen" "Gravelcykel"] </label><label> Hjälm [select* hjalm-2 include_blank "Hyr hjälm" "Tar med egen" "Hjälm (gratis)"] </label></div>
 [/group]
 
 [group resenar-3]
@@ -78,7 +78,7 @@
 <label class="fa-epost"> E-postadress för fakturan [email epost-3 autocomplete:off] </label>
 </div>
 [/group]
-<div class="resenar-rad cvb-cykel"><label> Längd (cm) [number* langd-3 min:100 max:220] </label><label> Cykel [select* cykel-3 include_blank "Vanlig cykel" "Elcykel" "Sportig cykel" "Tar med egen"] </label><label> Hjälm [select* hjalm-3 include_blank "Hyr hjälm" "Tar med egen" "Hjälm (gratis)"] </label></div>
+<div class="resenar-rad cvb-cykel"><label> Längd (cm) [number* langd-3 min:100 max:220] </label><label> Cykel [select* cykel-3 include_blank "Vanlig cykel" "Elcykel" "Sportig cykel" "Tar med egen" "Gravelcykel"] </label><label> Hjälm [select* hjalm-3 include_blank "Hyr hjälm" "Tar med egen" "Hjälm (gratis)"] </label></div>
 [/group]
 
 [group resenar-4]
@@ -93,7 +93,7 @@
 <label class="fa-epost"> E-postadress för fakturan [email epost-4 autocomplete:off] </label>
 </div>
 [/group]
-<div class="resenar-rad cvb-cykel"><label> Längd (cm) [number* langd-4 min:100 max:220] </label><label> Cykel [select* cykel-4 include_blank "Vanlig cykel" "Elcykel" "Sportig cykel" "Tar med egen"] </label><label> Hjälm [select* hjalm-4 include_blank "Hyr hjälm" "Tar med egen" "Hjälm (gratis)"] </label></div>
+<div class="resenar-rad cvb-cykel"><label> Längd (cm) [number* langd-4 min:100 max:220] </label><label> Cykel [select* cykel-4 include_blank "Vanlig cykel" "Elcykel" "Sportig cykel" "Tar med egen" "Gravelcykel"] </label><label> Hjälm [select* hjalm-4 include_blank "Hyr hjälm" "Tar med egen" "Hjälm (gratis)"] </label></div>
 [/group]
 
 [group resenar-5]
@@ -108,7 +108,7 @@
 <label class="fa-epost"> E-postadress för fakturan [email epost-5 autocomplete:off] </label>
 </div>
 [/group]
-<div class="resenar-rad cvb-cykel"><label> Längd (cm) [number* langd-5 min:100 max:220] </label><label> Cykel [select* cykel-5 include_blank "Vanlig cykel" "Elcykel" "Sportig cykel" "Tar med egen"] </label><label> Hjälm [select* hjalm-5 include_blank "Hyr hjälm" "Tar med egen" "Hjälm (gratis)"] </label></div>
+<div class="resenar-rad cvb-cykel"><label> Längd (cm) [number* langd-5 min:100 max:220] </label><label> Cykel [select* cykel-5 include_blank "Vanlig cykel" "Elcykel" "Sportig cykel" "Tar med egen" "Gravelcykel"] </label><label> Hjälm [select* hjalm-5 include_blank "Hyr hjälm" "Tar med egen" "Hjälm (gratis)"] </label></div>
 [/group]
 
 [group resenar-6]
@@ -123,7 +123,7 @@
 <label class="fa-epost"> E-postadress för fakturan [email epost-6 autocomplete:off] </label>
 </div>
 [/group]
-<div class="resenar-rad cvb-cykel"><label> Längd (cm) [number* langd-6 min:100 max:220] </label><label> Cykel [select* cykel-6 include_blank "Vanlig cykel" "Elcykel" "Sportig cykel" "Tar med egen"] </label><label> Hjälm [select* hjalm-6 include_blank "Hyr hjälm" "Tar med egen" "Hjälm (gratis)"] </label></div>
+<div class="resenar-rad cvb-cykel"><label> Längd (cm) [number* langd-6 min:100 max:220] </label><label> Cykel [select* cykel-6 include_blank "Vanlig cykel" "Elcykel" "Sportig cykel" "Tar med egen" "Gravelcykel"] </label><label> Hjälm [select* hjalm-6 include_blank "Hyr hjälm" "Tar med egen" "Hjälm (gratis)"] </label></div>
 [/group]
 
 [group resenar-7]
@@ -138,7 +138,7 @@
 <label class="fa-epost"> E-postadress för fakturan [email epost-7 autocomplete:off] </label>
 </div>
 [/group]
-<div class="resenar-rad cvb-cykel"><label> Längd (cm) [number* langd-7 min:100 max:220] </label><label> Cykel [select* cykel-7 include_blank "Vanlig cykel" "Elcykel" "Sportig cykel" "Tar med egen"] </label><label> Hjälm [select* hjalm-7 include_blank "Hyr hjälm" "Tar med egen" "Hjälm (gratis)"] </label></div>
+<div class="resenar-rad cvb-cykel"><label> Längd (cm) [number* langd-7 min:100 max:220] </label><label> Cykel [select* cykel-7 include_blank "Vanlig cykel" "Elcykel" "Sportig cykel" "Tar med egen" "Gravelcykel"] </label><label> Hjälm [select* hjalm-7 include_blank "Hyr hjälm" "Tar med egen" "Hjälm (gratis)"] </label></div>
 [/group]
 
 [group resenar-8]
@@ -153,7 +153,7 @@
 <label class="fa-epost"> E-postadress för fakturan [email epost-8 autocomplete:off] </label>
 </div>
 [/group]
-<div class="resenar-rad cvb-cykel"><label> Längd (cm) [number* langd-8 min:100 max:220] </label><label> Cykel [select* cykel-8 include_blank "Vanlig cykel" "Elcykel" "Sportig cykel" "Tar med egen"] </label><label> Hjälm [select* hjalm-8 include_blank "Hyr hjälm" "Tar med egen" "Hjälm (gratis)"] </label></div>
+<div class="resenar-rad cvb-cykel"><label> Längd (cm) [number* langd-8 min:100 max:220] </label><label> Cykel [select* cykel-8 include_blank "Vanlig cykel" "Elcykel" "Sportig cykel" "Tar med egen" "Gravelcykel"] </label><label> Hjälm [select* hjalm-8 include_blank "Hyr hjälm" "Tar med egen" "Hjälm (gratis)"] </label></div>
 <em>Är ni fler än 8? Ange namn på övriga resenärer under Övrig information, och för cykelresor även längd, cykel och hjälm.</em>
 [/group]
 

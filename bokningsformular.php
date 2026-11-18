@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Cykla & Vandra – Bokningsformulär
  * Description: Ett bokningsformulär (Contact Form 7) för både cykel- och vandringsresor. Styr vilka cykeltyper, hjälmval och försäkringar som visas för varje resa, utifrån reskoden (tripcode) i kortkoden.
- * Version: 1.10.1
+ * Version: 1.11.0
  * Author: Cykla & Vandra
  * Requires at least: 6.0
  * Requires PHP: 7.4
@@ -28,13 +28,17 @@ final class CV_Bokningsval {
 	 * Ordningen på alternativen i formulärets listor. Formuläret måste ha
 	 * alternativen i exakt denna ordning (texterna får vara på valfritt språk).
 	 *
-	 * cykel-N: "Vanlig cykel" "Elcykel" "Sportig cykel" "Tar med egen"
+	 * cykel-N: "Vanlig cykel" "Elcykel" "Sportig cykel" "Tar med egen" "Gravelcykel"
 	 * hjalm-N: "Hyr hjälm" "Tar med egen" "Hjälm (gratis)"
+	 *
+	 * Gravel lades till sist i formuläret (position 4, Pär 2026-11-18), så att de
+	 * äldre positionerna inte flyttades. BIKE_INDEX räknar upp positionerna i den
+	 * ordning de visas för kunden: Gravel före "Tar med egen".
 	 *
 	 * Listorna i HELMET_INDEX visas i den ordning de står. När hjälmen ingår
 	 * väljer kunden mellan "Hjälm (gratis)" och "Tar med egen" (Pär, 2026-11-18).
 	 */
-	const BIKE_INDEX   = array( 0 => 'vanlig', 1 => 'el', 2 => 'sportig', 3 => 'egen' );
+	const BIKE_INDEX   = array( 0 => 'vanlig', 1 => 'el', 2 => 'sportig', 4 => 'gravel', 3 => 'egen' );
 	const HELMET_INDEX = array(
 		'hyra'  => array( 0, 1 ),
 		'nej'   => array( 1 ),
@@ -46,6 +50,7 @@ final class CV_Bokningsval {
 			'vanlig'    => 'Vanlig cykel',
 			'el'        => 'Elcykel',
 			'sportig'   => 'Sportig cykel',
+			'gravel'    => 'Gravel',
 			'egen'      => 'Egen cykel',
 			'stold'     => 'Stöldförsäkring',
 			'assistans' => 'Assistansförsäkring',
@@ -159,6 +164,7 @@ final class CV_Bokningsval {
 			'vanlig'    => 1,
 			'el'        => 1,
 			'sportig'   => self::is_eurofun( $code ) ? 1 : 0,
+			'gravel'    => 0,
 			'egen'      => 1,
 			'stold'     => 0,
 			'assistans' => 0,
@@ -1411,7 +1417,7 @@ final class CV_Bokningsval {
 								<?php endif; ?>
 							</td>
 							<?php foreach ( $fields as $key => $label ) : ?>
-								<td class="cvb-c<?php echo in_array( $key, array( 'vanlig', 'el', 'sportig', 'egen' ), true ) ? ' cvb-bike' : ''; ?>"><input type="checkbox" name="<?php echo $n; ?>[<?php echo esc_attr( $key ); ?>]" value="1" <?php checked( ! empty( $s[ $key ] ) ); ?> aria-label="<?php echo esc_attr( $label ); ?>"></td>
+								<td class="cvb-c<?php echo in_array( $key, array( 'vanlig', 'el', 'sportig', 'gravel', 'egen' ), true ) ? ' cvb-bike' : ''; ?>"><input type="checkbox" name="<?php echo $n; ?>[<?php echo esc_attr( $key ); ?>]" value="1" <?php checked( ! empty( $s[ $key ] ) ); ?> aria-label="<?php echo esc_attr( $label ); ?>"></td>
 							<?php endforeach; ?>
 							<?php if ( self::SHOW_COMMENT ) : ?>
 								<td><input type="text" name="<?php echo $n; ?>[kommentar]" value="<?php echo esc_attr( $s['kommentar'] ); ?>" class="regular-text" style="width:100%"></td>
@@ -1460,7 +1466,7 @@ final class CV_Bokningsval {
 				<input type="hidden" name="action" value="cvb_import">
 				<p>
 					CSV med <code>Reskod</code> (eller <code>Tripcode</code>), <code>Webbsida</code> (eller <code>Vår hemsida</code>) eller <code>Resa</code>,
-					och någon av kolumnerna <code>Leverantör, Hjälm, Vanlig cykel, Elcykel, Sportig cykel, Egen cykel, Stöldförsäkring, Assistansförsäkring, Klar</code>.
+					och någon av kolumnerna <code>Leverantör, Hjälm, Vanlig cykel, Elcykel, Sportig cykel, Gravel, Egen cykel, Stöldförsäkring, Assistansförsäkring, Klar</code>.
 					Bara kolumnerna som finns i filen ändras, så det går att läsa in flikarna BIKE och HIKE i Booking Codes direkt för att fylla i leverantörerna.
 				</p>
 				<input type="file" name="cvb_csv" accept=".csv,text/csv" required>
@@ -1876,6 +1882,7 @@ final class CV_Bokningsval {
 			'vanlig'    => 'vanligcykel',
 			'el'        => 'elcykel',
 			'sportig'   => 'sportigcykel',
+			'gravel'    => isset( $map['gravelcykel'] ) ? 'gravelcykel' : 'gravel',
 			'egen'      => 'egencykel',
 			'stold'     => 'stoldforsakring',
 			'assistans' => 'assistansforsakring',
@@ -1945,7 +1952,7 @@ final class CV_Bokningsval {
 			if ( '' !== $helmet ) {
 				$row['hjalm'] = $helmet;
 			}
-			foreach ( array( 'vanlig', 'el', 'sportig', 'egen', 'stold', 'assistans' ) as $key ) {
+			foreach ( array( 'vanlig', 'el', 'sportig', 'gravel', 'egen', 'stold', 'assistans' ) as $key ) {
 				if ( $has( $key ) ) {
 					$row[ $key ] = self::truthy( $get( $key ) );
 				}
@@ -1998,7 +2005,7 @@ final class CV_Bokningsval {
 		$out = fopen( 'php://output', 'w' ); // phpcs:ignore WordPress.WP.AlternativeFunctions
 		fwrite( $out, "\xEF\xBB\xBF" ); // phpcs:ignore WordPress.WP.AlternativeFunctions
 		$types   = self::type_choices();
-		fputcsv( $out, array( 'Resa', 'Typ', 'Reskod', 'Leverantör', 'Hjälm', 'Vanlig cykel', 'Elcykel', 'Sportig cykel', 'Egen cykel', 'Stöldförsäkring', 'Assistansförsäkring', 'Kommentar', 'Klar' ) );
+		fputcsv( $out, array( 'Resa', 'Typ', 'Reskod', 'Leverantör', 'Hjälm', 'Vanlig cykel', 'Elcykel', 'Sportig cykel', 'Gravel', 'Egen cykel', 'Stöldförsäkring', 'Assistansförsäkring', 'Kommentar', 'Klar' ) );
 		foreach ( $tours as $code => $t ) {
 			$s = self::settings_for( $code, $t['id'] );
 			fputcsv(
@@ -2012,6 +2019,7 @@ final class CV_Bokningsval {
 					$s['vanlig'] ? 'TRUE' : 'FALSE',
 					$s['el'] ? 'TRUE' : 'FALSE',
 					$s['sportig'] ? 'TRUE' : 'FALSE',
+					$s['gravel'] ? 'TRUE' : 'FALSE',
 					$s['egen'] ? 'TRUE' : 'FALSE',
 					$s['stold'] ? 'TRUE' : 'FALSE',
 					$s['assistans'] ? 'TRUE' : 'FALSE',

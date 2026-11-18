@@ -54,7 +54,7 @@ Klistra in `formularmall-sv.txt` under fliken **Formulär** i bokningsformuläre
 
 Det viktiga i mallen:
 
-- `cykel-N` har alternativen **i denna ordning**: Vanlig cykel, Elcykel, Sportig cykel, Tar med egen
+- `cykel-N` har alternativen **i denna ordning**: Vanlig cykel, Elcykel, Sportig cykel, Tar med egen, Gravelcykel (Gravel ligger sist i formuläret men visas före Tar med egen)
 - `hjalm-N` har alternativen **i denna ordning**: Hyr hjälm, Tar med egen, Hjälm (gratis)
 - Raden med längd, cykel och hjälm ligger i `<div class="resenar-rad cvb-cykel">`
 - Försäkringsfälten ligger i `<div class="cvb-stold">…</div>` och `<div class="cvb-assistans">…</div>`

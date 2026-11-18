@@ -211,6 +211,31 @@ $_POST = array();
 $c = CV_Bokningsval::filter_mail_components( array( 'body' => $mail ) );
 ok( $mail === $c['body'], 'utan reskod lämnas mailet orört' );
 
+echo "\n--- Gravel ---\n";
+$GLOBALS['opts'] = array( 'cvb_settings' => array(
+	'GRAV-1' => array( 'typ' => 'cykel', 'hjalm' => 'hyra', 'vanlig' => 1, 'el' => 1, 'sportig' => 0, 'gravel' => 1, 'egen' => 1 ),
+	'GRAV-0' => array( 'typ' => 'cykel', 'hjalm' => 'hyra', 'vanlig' => 1, 'el' => 0, 'sportig' => 0, 'gravel' => 0, 'egen' => 1 ),
+	'BARA-G' => array( 'typ' => 'cykel', 'hjalm' => 'hyra', 'vanlig' => 0, 'el' => 0, 'sportig' => 0, 'gravel' => 1, 'egen' => 0 ),
+) );
+$GLOBALS['cur'] = 0;
+$nya   = array( 'Vanlig cykel', 'Elcykel', 'Sportig cykel', 'Tar med egen', 'Gravelcykel' );
+$gamla = array( 'Vanlig cykel', 'Elcykel', 'Sportig cykel', 'Tar med egen' );
+WPCF7_ContactForm::$attr = 'GRAV-1';
+$r = CV_Bokningsval::filter_form_tag( mk( 'select*', 'cykel-1', $nya ) );
+ok( array( 'Vanlig cykel', 'Elcykel', 'Gravelcykel', 'Tar med egen' ) === $r->values, 'Gravel visas före Tar med egen: ' . implode( '/', $r->values ) );
+$r = CV_Bokningsval::filter_form_tag( mk( 'select*', 'cykel-1', $gamla ) );
+ok( array( 'Vanlig cykel', 'Elcykel', 'Tar med egen' ) === $r->values, 'formulär utan Gravel fungerar som förut' );
+WPCF7_ContactForm::$attr = 'GRAV-0';
+$r = CV_Bokningsval::filter_form_tag( mk( 'select*', 'cykel-1', $nya ) );
+ok( array( 'Vanlig cykel', 'Tar med egen' ) === $r->values, 'Gravel visas inte när rutan är urkryssad' );
+WPCF7_ContactForm::$attr = 'BARA-G';
+$r = CV_Bokningsval::filter_form_tag( mk( 'select*', 'cykel-1', $nya ) );
+ok( array( 'Gravelcykel' ) === $r->values && ! in_array( 'include_blank', $r->options, true ), 'bara Gravel: förvalt' );
+WPCF7_ContactForm::$attr = '';
+ok( 0 === CV_Bokningsval::settings_for( 'NY-RESA-X', 0 )['gravel'], 'nya resor har inte Gravel som standard' );
+$diff = CV_Bokningsval::compare_structure( '[select* cykel-1 include_blank "a" "b" "c" "d" "e"]', '[select* cykel-1 include_blank "a" "b" "c" "d"]' );
+ok( array( 'cykel-1 har 4 alternativ i stället för 5' ) === $diff, 'översättning utan Gravel varnas: ' . implode( '; ', $diff ) );
+
 echo "\n--- Felaktiga reskoder ---\n";
 ok( '' !== CV_Bokningsval::code_problem( '<span data-sheets-root=' ), 'HTML från Google Sheets upptäcks' );
 ok( '' !== CV_Bokningsval::code_problem( 'Mon May 11 2026 00:00:00 GMT+0200 (Central European Summer Time)' ), 'datum upptäcks' );
