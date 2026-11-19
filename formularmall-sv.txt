@@ -29,6 +29,9 @@
 <label> Ankomstdatum (dag 1 i programmet)
     [date* datum min:today+7days] </label>
 
+<div class="cvb-rum"><label> Rumskategori
+[select* rumskategori include_blank "Standard" "Superior" "Havsutsikt" "Kategori A" "Kategori B" "Charm"]</label></div>
+
 <div class="cvb-stold"><label> Stöldförsäkring hyrcykel (rekommenderas):
 [select* cykelforsakring include_blank "Ja" "Nej"]</label></div>
 

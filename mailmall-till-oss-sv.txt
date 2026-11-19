@@ -1,9 +1,10 @@
 BOKNING
 Resa: [_post_url]
-Bokningskod: [tripcode]
+Bokningskod: [cvb-reskod]
 Önskat startdatum: [datum]
 Antal resenärer: [antal]
-Rabattkod/Presentkort: [rabattkod]
+[cvb-rum]Rumskategori: [rumskategori]
+[/cvb-rum]Rabattkod/Presentkort: [rabattkod]
 [cvb-stold]Cykelförsäkring: [cykelforsakring]
 [/cvb-stold][cvb-assistans]Assistansförsäkring: [assistansforsakring]
 [/cvb-assistans]

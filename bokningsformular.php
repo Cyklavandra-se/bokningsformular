@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Cykla & Vandra – Bokningsformulär
  * Description: Ett bokningsformulär (Contact Form 7) för både cykel- och vandringsresor. Styr vilka cykeltyper, hjälmval och försäkringar som visas för varje resa, utifrån reskoden (tripcode) i kortkoden.
- * Version: 1.14.0
+ * Version: 1.15.0
  * Author: Cykla & Vandra
  * Requires at least: 6.0
  * Requires PHP: 7.4
@@ -39,6 +39,33 @@ final class CV_Bokningsval {
 	 * väljer kunden mellan "Hjälm (gratis)" och "Tar med egen" (Pär, 2026-11-18).
 	 */
 	const BIKE_INDEX   = array( 0 => 'vanlig', 1 => 'el', 2 => 'sportig', 4 => 'gravel', 3 => 'egen' );
+	/**
+	 * Rumskategorier i listan rumskategori, efter position (Pär, 2026-11-19).
+	 * Nya kategorier läggs till sist, både här och i formuläret, så att de
+	 * befintliga positionerna inte flyttas.
+	 *
+	 * rumskategori: "Standard" "Superior" "Havsutsikt" "Kategori A" "Kategori B" "Charm"
+	 */
+	const ROOM_INDEX = array(
+		0 => 'standard',
+		1 => 'superior',
+		2 => 'havsutsikt',
+		3 => 'kat_a',
+		4 => 'kat_b',
+		5 => 'charm',
+	);
+
+	public static function room_choices() {
+		return array(
+			'standard'   => 'Standard',
+			'superior'   => 'Superior',
+			'havsutsikt' => 'Havsutsikt',
+			'kat_a'      => 'Kategori A',
+			'kat_b'      => 'Kategori B',
+			'charm'      => 'Charm',
+		);
+	}
+
 	const HELMET_INDEX = array(
 		'hyra'  => array( 0, 1 ),
 		'nej'   => array( 1 ),
@@ -188,6 +215,8 @@ final class CV_Bokningsval {
 			'assistans' => 0,
 			'kommentar' => '',
 			'klar'      => 0,
+			'rum'       => array(),
+			'rum_kod'   => array(),
 		);
 	}
 
@@ -282,7 +311,58 @@ final class CV_Bokningsval {
 		$clean['leverantor'] = isset( $row['leverantor'] ) ? sanitize_text_field( $row['leverantor'] ) : '';
 		$clean['kommentar']  = isset( $row['kommentar'] ) ? sanitize_text_field( $row['kommentar'] ) : '';
 		$clean['klar']      = empty( $row['klar'] ) ? 0 : 1;
+		$clean['rum']       = array();
+		$clean['rum_kod']   = array();
+		foreach ( array_keys( self::room_choices() ) as $key ) {
+			if ( ! empty( $row['rum'][ $key ] ) ) {
+				$clean['rum'][] = $key;
+			}
+			$kod = isset( $row['rum_kod'][ $key ] ) ? self::normalize_code( $row['rum_kod'][ $key ] ) : '';
+			if ( '' !== $kod ) {
+				$clean['rum_kod'][ $key ] = $kod;
+			}
+		}
 		return $clean;
+	}
+
+	/** Rumskategorierna resan erbjuder. Rutan visas bara när det finns minst två att välja mellan. */
+	public static function room_options( $s ) {
+		$rum = isset( $s['rum'] ) && is_array( $s['rum'] ) ? $s['rum'] : array();
+		return array_values( array_intersect( self::ROOM_INDEX, $rum ) );
+	}
+
+	public static function has_room_choice( $s ) {
+		return count( self::room_options( $s ) ) >= 2;
+	}
+
+	/**
+	 * Reskoden för den rumskategori kunden valde (nyckel som i ROOM_INDEX), eller
+	 * resans egen reskod när kategorin saknar egen kod.
+	 */
+	public static function code_for_room( $code, $s, $room_key ) {
+		if ( $room_key && ! empty( $s['rum_kod'][ $room_key ] ) ) {
+			return $s['rum_kod'][ $room_key ];
+		}
+		return $code;
+	}
+
+	/**
+	 * Vilken kategori (nyckel) ett inskickat värde i rumskategori motsvarar. Värdet
+	 * jämförs med alternativen i det formulär som skickades (rätt språk), efter position.
+	 */
+	public static function posted_room_key( $form_body, $posted ) {
+		$posted = trim( (string) $posted );
+		if ( '' === $posted || ! preg_match( '/\[select\*?\s+rumskategori\b([^\]]*)\]/', (string) $form_body, $m ) ) {
+			return '';
+		}
+		preg_match_all( '/"([^"]*)"/', $m[1], $opts );
+		foreach ( $opts[1] as $i => $opt ) {
+			$parts = explode( '|', $opt );
+			if ( trim( $parts[0] ) === $posted || ( isset( $parts[1] ) && trim( $parts[1] ) === $posted ) ) {
+				return isset( self::ROOM_INDEX[ $i ] ) ? self::ROOM_INDEX[ $i ] : '';
+			}
+		}
+		return '';
 	}
 
 	/* ------------------------------------------------------------------
@@ -376,7 +456,8 @@ final class CV_Bokningsval {
 		$is_helmet = (bool) preg_match( '/^hjalm-\d+$/', $name );
 		$is_height = (bool) preg_match( '/^langd-\d+$/', $name );
 		$is_ins    = in_array( $name, array( 'cykelforsakring', 'assistansforsakring' ), true );
-		if ( ! $is_bike && ! $is_helmet && ! $is_height && ! $is_ins ) {
+		$is_room   = 'rumskategori' === $name;
+		if ( ! $is_bike && ! $is_helmet && ! $is_height && ! $is_ins && ! $is_room ) {
 			return $tag;
 		}
 
@@ -390,6 +471,15 @@ final class CV_Bokningsval {
 		}
 
 		$s = self::current_settings();
+
+		// Rumskategori: bara resans kategorier, och bara när det finns ett val (gäller även vandring).
+		if ( $is_room ) {
+			if ( ! self::has_room_choice( $s ) ) {
+				return self::make_optional( $tag );
+			}
+			$keep = array_keys( array_intersect( self::ROOM_INDEX, self::room_options( $s ) ) );
+			return self::reduce_options( $tag, $keep );
+		}
 
 		// Vandring: längd, cykel och hjälm tas bort ur HTML:en och görs frivilliga.
 		if ( 'vandring' === $s['typ'] && ( $is_bike || $is_helmet || $is_height ) ) {
@@ -503,6 +593,8 @@ final class CV_Bokningsval {
 			// Försäkringarna visas bara på cykelresor som erbjuder dem (Pär, 2026-11-18).
 			'cvb-stold'       => $bike && ! empty( $s['stold'] ),
 			'cvb-assistans'   => $bike && ! empty( $s['assistans'] ),
+			// Rumskategori: bara på resor där kunden kan välja (Pär, 2026-11-19).
+			'cvb-rum'         => self::has_room_choice( $s ),
 		);
 	}
 
@@ -529,9 +621,15 @@ final class CV_Bokningsval {
 			return $components;
 		}
 		$s = self::current_settings();
+		// [cvb-reskod]: reskoden för den rumskategori kunden valde, annars resans reskod.
+		$form_id  = isset( $_POST['_wpcf7'] ) ? (int) $_POST['_wpcf7'] : 0; // phpcs:ignore WordPress.Security.NonceVerification
+		$posted   = isset( $_POST['rumskategori'] ) ? sanitize_text_field( wp_unslash( $_POST['rumskategori'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification
+		$room_key = $form_id ? self::posted_room_key( get_post_meta( $form_id, '_form', true ), $posted ) : '';
+		$reskod   = self::code_for_room( self::current_tripcode(), $s, self::has_room_choice( $s ) ? $room_key : '' );
 		foreach ( array( 'subject', 'body' ) as $key ) {
 			if ( isset( $components[ $key ] ) ) {
-				$components[ $key ] = self::apply_mail_blocks( $components[ $key ], $s );
+				$text               = str_replace( '[cvb-reskod]', $reskod, (string) $components[ $key ] );
+				$components[ $key ] = self::apply_mail_blocks( $text, $s );
 			}
 		}
 		return $components;
@@ -553,6 +651,9 @@ final class CV_Bokningsval {
 		}
 		if ( empty( $s['assistans'] ) ) {
 			$html = preg_replace( '#<div class="cvb-assistans">.*?</div>#s', '', $html );
+		}
+		if ( ! self::has_room_choice( $s ) ) {
+			$html = preg_replace( '#<div class="cvb-rum">.*?</div>#s', '', $html );
 		}
 		return $html;
 	}
@@ -1061,7 +1162,7 @@ final class CV_Bokningsval {
 			}
 		}
 		$markers = array();
-		foreach ( array( 'cvb-cykel', 'cvb-stold', 'cvb-assistans', 'resenar-rad', '[hidden tripcode' ) as $marker ) {
+		foreach ( array( 'cvb-cykel', 'cvb-stold', 'cvb-assistans', 'cvb-rum', 'resenar-rad', '[hidden tripcode' ) as $marker ) {
 			$markers[ $marker ] = substr_count( $body, $marker );
 		}
 		return array( 'tags' => $tags, 'markers' => $markers );
@@ -1426,6 +1527,29 @@ final class CV_Bokningsval {
 								<?php if ( $tour['langs'] ) : ?>
 									<span class="cvb-langs"><?php echo esc_html( strtoupper( implode( ' · ', $tour['langs'] ) ) ); ?></span>
 								<?php endif; ?>
+								<?php
+								// Rumskategorier: en panel per resa, bara för de få resor som har val (Pär, 2026-11-19).
+								$rooms     = self::room_choices();
+								$room_sel  = self::room_options( $s );
+								$room_text = array();
+								foreach ( $room_sel as $rk ) {
+									$room_text[] = $rooms[ $rk ] . ( ! empty( $s['rum_kod'][ $rk ] ) ? ' (' . $s['rum_kod'][ $rk ] . ')' : '' );
+								}
+								?>
+								<div class="cvb-rum-cell">
+									<button type="button" class="button-link cvb-rum-toggle" aria-expanded="false">Kategorier<?php echo $room_sel ? ': ' . esc_html( implode( ', ', $room_text ) ) : ''; ?></button>
+									<?php if ( 1 === count( $room_sel ) ) : ?><span class="cvb-rum-warn" title="Rutan visas bara när det finns minst två kategorier">bara en kategori, visas inte</span><?php endif; ?>
+									<div class="cvb-rum-panel" hidden>
+										<p class="cvb-rum-help">Kryssa i de rumskategorier kunden kan välja mellan (minst två). Fyll i en reskod om kategorin bokas med en annan kod än resans <code><?php echo esc_html( $code ); ?></code>.</p>
+										<?php foreach ( $rooms as $rk => $rlabel ) : ?>
+											<label class="cvb-rum-row">
+												<input type="checkbox" name="<?php echo $n; ?>[rum][<?php echo esc_attr( $rk ); ?>]" value="1" <?php checked( in_array( $rk, $room_sel, true ) ); ?>>
+												<span><?php echo esc_html( $rlabel ); ?></span>
+												<input type="text" name="<?php echo $n; ?>[rum_kod][<?php echo esc_attr( $rk ); ?>]" value="<?php echo esc_attr( isset( $s['rum_kod'][ $rk ] ) ? $s['rum_kod'][ $rk ] : '' ); ?>" placeholder="<?php echo esc_attr( $code ); ?>" class="cvb-rum-kod" aria-label="<?php echo esc_attr( 'Reskod för ' . $rlabel ); ?>">
+											</label>
+										<?php endforeach; ?>
+									</div>
+								</div>
 								<?php // Klar visas inte längre men behålls i inställningarna (och i CSV). ?>
 								<?php if ( $done ) : ?><input type="hidden" name="<?php echo $n; ?>[klar]" value="1"><?php endif; ?>
 								<input type="hidden" name="<?php echo $n; ?>[present]" value="1">
@@ -1506,6 +1630,16 @@ final class CV_Bokningsval {
 			.cvb-swapbox p { margin:8px 0; }
 			.cvb-hint { margin-left:8px; color:#646970; }
 			.cvb-swap-one { margin-left:4px; font-size:12px; }
+			.cvb-rum-cell { margin-top:2px; }
+			.cvb-rum-toggle { font-size:12px; color:#646970; text-decoration:none; }
+			.cvb-rum-toggle:hover, .cvb-rum-toggle[aria-expanded="true"] { color:#2271b1; text-decoration:underline; }
+			.cvb-rum-warn { font-size:11px; color:#996800; margin-left:6px; }
+			.cvb-rum-warn[hidden] { display:none; }
+			.cvb-rum-panel { margin:6px 0 4px; padding:8px 10px; background:#fff; border:1px solid #c3c4c7; border-radius:4px; max-width:420px; }
+			.cvb-rum-panel[hidden] { display:none; }
+			.cvb-rum-help { margin:0 0 6px; font-size:12px; color:#50575e; }
+			.cvb-rum-row { display:grid; grid-template-columns:auto 7.5em 1fr; gap:6px; align-items:center; margin:3px 0; font-size:13px; }
+			.cvb-rum-kod { width:100%; font-family:monospace; font-size:12px; }
 			.cvb-badge[hidden] { display:none; }
 			.cvb-save-status { display:inline-block; width:1em; margin-left:4px; font-weight:700; }
 			.cvb-table .cvb-status-col { width:1.5em; padding-left:0; padding-right:0; }
@@ -1644,10 +1778,32 @@ final class CV_Bokningsval {
 						.then( function () { pending--; } );
 				} );
 			}
+			function updateRoomLabel( cell ) {
+				var picked = [];
+				cell.querySelectorAll( '.cvb-rum-row' ).forEach( function ( row ) {
+					if ( row.querySelector( 'input[type=checkbox]' ).checked ) {
+						var kod = row.querySelector( '.cvb-rum-kod' ).value.trim();
+						picked.push( row.querySelector( 'span' ).textContent + ( kod ? ' (' + kod + ')' : '' ) );
+					}
+				} );
+				cell.querySelector( '.cvb-rum-toggle' ).textContent = 'Kategorier' + ( picked.length ? ': ' + picked.join( ', ' ) : '' );
+				var warn = cell.querySelector( '.cvb-rum-warn' );
+				if ( warn ) {
+					warn.hidden = picked.length !== 1;
+				} else if ( picked.length === 1 ) {
+					warn = document.createElement( 'span' );
+					warn.className = 'cvb-rum-warn';
+					warn.textContent = 'bara en kategori, visas inte';
+					cell.insertBefore( warn, cell.querySelector( '.cvb-rum-panel' ) );
+				}
+			}
 			document.querySelector( '.cvb-table' ).addEventListener( 'change', function ( e ) {
 				var tr = e.target.closest( 'tbody tr' );
 				if ( ! tr || ! e.target.name || e.target.name.indexOf( 'cvb[' ) !== 0 ) {
 					return;
+				}
+				if ( e.target.closest( '.cvb-rum-cell' ) ) {
+					updateRoomLabel( e.target.closest( '.cvb-rum-cell' ) );
 				}
 				saveRow( tr );
 			} );
@@ -1656,6 +1812,15 @@ final class CV_Bokningsval {
 					e.preventDefault();
 					e.returnValue = '';
 				}
+			} );
+
+			// Kategorier: panelen öppnas och stängs med länken på raden.
+			document.querySelectorAll( '.cvb-rum-toggle' ).forEach( function ( btn ) {
+				btn.addEventListener( 'click', function () {
+					var panel = btn.parentNode.querySelector( '.cvb-rum-panel' );
+					panel.hidden = ! panel.hidden;
+					btn.setAttribute( 'aria-expanded', panel.hidden ? 'false' : 'true' );
+				} );
 			} );
 
 			// Typ: knappen C/V öppnar en liten meny med Cykel och Vandring.
