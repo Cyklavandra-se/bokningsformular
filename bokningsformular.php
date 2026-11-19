@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Cykla & Vandra – Bokningsformulär
  * Description: Ett bokningsformulär (Contact Form 7) för både cykel- och vandringsresor. Styr vilka cykeltyper, hjälmval och försäkringar som visas för varje resa, utifrån reskoden (tripcode) i kortkoden.
- * Version: 1.13.0
+ * Version: 1.13.1
  * Author: Cykla & Vandra
  * Requires at least: 6.0
  * Requires PHP: 7.4
@@ -135,22 +135,40 @@ final class CV_Bokningsval {
 
 	/**
 	 * Leverantören enligt arket Booking Codes (data/leverantorer.php). Saknas
-	 * reskoden där känns S-Capes koder igen på mönstret, t.ex. ITSB290 och FRSW260.
+	 * reskoden där känns S-Capes koder igen på mönstret, t.ex. ITSB290 och FRSW260,
+	 * och Eurofuns koder (landskod och bindestreck) blir "Eurofun".
 	 */
 	public static function supplier_for( $code ) {
 		static $map = null;
 		if ( null === $map ) {
-			$map = include __DIR__ . '/data/leverantorer.php';
-			$map = is_array( $map ) ? $map : array();
+			$map  = array();
+			$list = include __DIR__ . '/data/leverantorer.php';
+			foreach ( is_array( $list ) ? $list : array() as $list_code => $supplier ) {
+				$map[ self::code_key( $list_code ) ] = $supplier;
+			}
 		}
 		$code = self::normalize_code( $code );
-		if ( isset( $map[ $code ] ) ) {
-			return $map[ $code ];
+		$key  = self::code_key( $code );
+		if ( '' !== $key && isset( $map[ $key ] ) ) {
+			return $map[ $key ];
 		}
 		if ( preg_match( '/^[A-Z]{2}S[BWM][A-Z]*\d/', strtoupper( $code ) ) ) {
 			return 'S-Cape';
 		}
+		// Nya Eurofun-resor (Eurobike, Radweg-Reisen, Velociped, Eurohike) som ännu
+		// inte finns i listan känns igen på reskoden (Pär, 2026-11-19).
+		if ( self::is_eurofun( $code ) ) {
+			return 'Eurofun';
+		}
 		return '';
+	}
+
+	/**
+	 * Jämförelsenyckel för reskoder i leverantörslistan: gemener, bara bokstäver och
+	 * siffror. "Trip 08-08", "Trip: 08-08" och "trip 0808" ger samma nyckel.
+	 */
+	public static function code_key( $code ) {
+		return preg_replace( '/[^\p{L}\p{N}]+/u', '', mb_strtolower( (string) $code, 'UTF-8' ) );
 	}
 
 	/** Standardläge för resor som inte är ifyllda. */
@@ -1423,7 +1441,7 @@ final class CV_Bokningsval {
 						<option value="<?php echo esc_attr( $supplier ); ?>">
 					<?php endforeach; ?>
 				</datalist>
-				<p class="cvb-autosave-note">Ändringar sparas direkt när du klickar i tabellen (✓ vid resans namn). Knappen behövs bara om något inte gick att spara.</p>
+				<p class="cvb-autosave-note">Ändringar sparas direkt när du klickar i tabellen (✓ längst till höger). Knappen behövs bara om något inte gick att spara.</p>
 				<?php submit_button( 'Spara alla' ); ?>
 			</form>
 

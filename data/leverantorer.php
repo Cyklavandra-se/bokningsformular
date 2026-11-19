@@ -1,7 +1,9 @@
 <?php
 /**
  * Leverantör per reskod, från arket "Booking Codes - bokningskoder självguidade resor"
- * (flikarna BIKE och HIKE, kolumnerna Tripcode och Leverantör), 2026-11-18.
+ * (flikarna BIKE och HIKE, kolumnerna Tripcode och Leverantör), senast uppdaterad 2026-11-19.
+ * Reskoderna jämförs utan hänsyn till stora/små bokstäver, mellanslag och skiljetecken,
+ * så "Trip 08-08" och "Trip: 08-08" räknas som samma kod.
  *
  * Används när en resa saknar sparad leverantör. Leverantörer som skrivs in på
  * adminsidan eller läses in med CSV har företräde. Uppdatera listan när arket ändras.
@@ -36,6 +38,7 @@ return array(
 	'ITSB030'                        => 'S-Cape',
 	'ITSB210'                        => 'S-Cape',
 	'IT-PIRTS-08X'                   => 'Eurobike',
+	'IT-BZRBV-08'                    => 'Eurobike',
 	'AT-AARSG-08X'                   => 'Eurobike',
 	'IT-TORFR-08X'                   => 'Eurobike',
 	'IT-GARGA-07LI'                  => 'Eurobike',
@@ -72,18 +75,19 @@ return array(
 	'Pamplona to Biarritz'           => 'Ibertrails',
 	'Lanzarote'                      => 'IberoCycle',
 	'GRSB011'                        => 'S-Cape',
-	'Trip: 1005'                     => 'Helia tours',
+	'1005'                           => 'Helia',
+	'Trip: 1005'                     => 'Helia',
 	'Mjölkvägen'                     => 'Jotunheimen Travel',
 	'Mjölkvägen & Rallarvägen'       => 'Jotunheimen Travel',
 	'Tour de Dovre 5 days'           => 'Jotunheimen Travel',
 	'Heritage Gravel'                => 'Jotunheimen Travel',
 	'HR-DASSA-08G'                   => 'Radweg-Reisen',
 	'HRSB050'                        => 'S-Cape',
-	'Trip 07-06'                     => 'Dutch Bike tours',
-	'Trip: 08-08'                    => 'Dutch Bike tours',
-	'Trip: 05-11'                    => 'Dutch Bike tours',
-	'BE107001'                       => 'Dutch Bike tours',
-	'BE107020'                       => 'Dutch Bike tours',
+	'Trip 07-06'                     => 'Dutch Bike Tours',
+	'Trip 08-08'                     => 'Dutch Bike Tours',
+	'Trip 05-11'                     => 'Dutch Bike Tours',
+	'BE107001'                       => 'Dutch Bike Tours',
+	'BE107020'                       => 'Dutch Bike Tours',
 	'DK-DKRSS-08X'                   => 'Radweg-Reisen',
 	'Kattegattleden 4 nätter'        => 'Evertrek',
 	'Kattegattleden 7 nätter'        => 'Evertrek',
@@ -145,4 +149,6 @@ return array(
 	'HRSW020'                        => 'S-Cape',
 	'Scottish Highlands Walking'     => 'Macs Adventure',
 	'SI-JAWBB-08X'                   => 'Eurohike',
+	'AT-SKWRA-08X'                   => 'Eurohike',
+	'Andorra'                        => 'Cykla & Vandra',
 );

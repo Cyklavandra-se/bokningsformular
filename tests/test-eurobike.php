@@ -110,7 +110,13 @@ ok( 2 === $res['imported'] && 1 === count( $res['unmatched'] ) && false !== strp
 echo "\n--- Leverantör från Booking Codes ---\n";
 $GLOBALS['opts'] = array();
 ok( 'Megasport' === CV_Bokningsval::supplier_for( 'Algarve Coastal Biking' ), 'Algarve Coastal Biking: Megasport' );
-ok( 'Dutch Bike tours' === CV_Bokningsval::supplier_for( 'Trip: 05-11' ), 'Trip: 05-11: Dutch Bike tours' );
+ok( 'Dutch Bike Tours' === CV_Bokningsval::supplier_for( 'Trip: 05-11' ), 'Trip: 05-11 (gammal stavning med kolon): Dutch Bike Tours' );
+ok( 'Dutch Bike Tours' === CV_Bokningsval::supplier_for( 'Trip 05-11' ), 'Trip 05-11 (ny stavning utan kolon): Dutch Bike Tours' );
+ok( 'Dutch Bike Tours' === CV_Bokningsval::supplier_for( 'trip 07-06' ), 'stora och små bokstäver spelar ingen roll' );
+ok( 'Eurobike' === CV_Bokningsval::supplier_for( 'IT-BZRBV-08' ), 'IT-BZRBV-08 (Från Dolomiterna till Venedig): Eurobike' );
+ok( 'Cykla & Vandra' === CV_Bokningsval::supplier_for( 'Andorra' ), 'Andorra: Cykla & Vandra' );
+ok( 'Eurofun' === CV_Bokningsval::supplier_for( 'AT-NYRESA-08X' ), 'ny Eurofun-kod som inte finns i listan: Eurofun' );
+ok( 'nej' === CV_Bokningsval::settings_for( 'AT-NYRESA-08X', 0 )['hjalm'] && 1 === CV_Bokningsval::settings_for( 'AT-NYRESA-08X', 0 )['sportig'], 'ny Eurofun-kod: Eurofun-reglerna gäller' );
 ok( 'Jotunheimen Travel' === CV_Bokningsval::supplier_for( 'Mjölkvägen &amp; Rallarvägen' ), 'reskod med &amp; hittas' );
 ok( 'S-Cape' === CV_Bokningsval::supplier_for( 'ITSB999' ), 'okänd S-Cape-kod känns igen på mönstret' );
 ok( '' === CV_Bokningsval::supplier_for( 'BE999999' ), 'okänd kod utan mönster: tom' );
