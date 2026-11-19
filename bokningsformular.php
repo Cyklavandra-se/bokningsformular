@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Cykla & Vandra – Bokningsformulär
  * Description: Ett bokningsformulär (Contact Form 7) för både cykel- och vandringsresor. Styr vilka cykeltyper, hjälmval och försäkringar som visas för varje resa, utifrån reskoden (tripcode) i kortkoden.
- * Version: 1.13.1
+ * Version: 1.14.0
  * Author: Cykla & Vandra
  * Requires at least: 6.0
  * Requires PHP: 7.4
@@ -1313,7 +1313,23 @@ final class CV_Bokningsval {
 					</div>
 				<?php endif; ?>
 			</form>
-			<p class="cvb-filter">
+			<?php
+			// ?reskod=IT-BZRBV-08 (eller flera, kommaseparerade) visar bara de resorna (Pär, 2026-11-19).
+			$only_raw  = isset( $_GET['reskod'] ) ? sanitize_text_field( wp_unslash( $_GET['reskod'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification
+			$only_keys = array_values( array_filter( array_map( array( __CLASS__, 'code_key' ), explode( ',', $only_raw ) ) ) );
+			if ( $only_keys ) :
+				$found = array_filter( array_keys( $tours ), function ( $c ) use ( $only_keys ) { return in_array( self::code_key( $c ), $only_keys, true ); } );
+				?>
+				<div class="cvb-only <?php echo $found ? '' : 'cvb-only-none'; ?>">
+					<?php if ( $found ) : ?>
+						Visar bara reskod <strong><?php echo esc_html( $only_raw ); ?></strong>.
+					<?php else : ?>
+						Ingen resa på sajten har reskoden <strong><?php echo esc_html( $only_raw ); ?></strong>. Kontrollera att kortkoden på resans sida har samma reskod.
+					<?php endif; ?>
+					<a href="<?php echo esc_url( admin_url( 'admin.php?page=' . self::SLUG ) ); ?>">Visa alla resor</a>
+				</div>
+			<?php endif; ?>
+			<p class="cvb-filter"<?php echo $only_keys ? ' hidden' : ''; ?>>
 				<label>Typ:
 					<select id="cvb-filter-typ">
 						<option value="cykel" selected>Cykel</option>
@@ -1371,7 +1387,7 @@ final class CV_Bokningsval {
 						$cls        = ( $official && ! $right_form ? 'cvb-todo' : 'cvb-done' )
 							. ( 'vandring' === $s['typ'] ? ' cvb-hike' : '' );
 						?>
-						<tr class="<?php echo esc_attr( $cls ); ?>" data-right-form="<?php echo $right_form ? '1' : '0'; ?>" data-typ="<?php echo esc_attr( $s['typ'] ); ?>" data-search="<?php echo esc_attr( strtolower( $tour['title'] . ' ' . $code . ' ' . $s['leverantor'] ) ); ?>">
+						<tr class="<?php echo esc_attr( $cls ); ?>" data-right-form="<?php echo $right_form ? '1' : '0'; ?>" data-key="<?php echo esc_attr( self::code_key( $code ) ); ?>" data-typ="<?php echo esc_attr( $s['typ'] ); ?>" data-search="<?php echo esc_attr( strtolower( $tour['title'] . ' ' . $code . ' ' . $s['leverantor'] ) ); ?>">
 							<td class="cvb-c cvb-typcell">
 								<input type="hidden" name="<?php echo $n; ?>[typ]" value="<?php echo esc_attr( $s['typ'] ); ?>" class="cvb-typ-input">
 								<button type="button" class="cvb-typ-btn cvb-typ-<?php echo esc_attr( $s['typ'] ); ?>" aria-haspopup="true" aria-expanded="false" title="<?php echo esc_attr( $types[ $s['typ'] ] ); ?> – klicka för att byta"><?php echo esc_html( 'vandring' === $s['typ'] ? 'V' : 'C' ); ?></button>
@@ -1502,6 +1518,10 @@ final class CV_Bokningsval {
 			.cvb-autosave-note { color:#646970; margin:12px 0 0; }
 			.cvb-table code.cvb-bad-code { background:#fcf0f1; color:#8a2424; }
 			.cvb-bad-note { margin-left:8px; color:#8a2424; }
+			.cvb-only { background:#f0f6fc; border:1px solid #72aee6; border-radius:4px; padding:8px 12px; margin:8px 0 12px; max-width:1100px; }
+			.cvb-only a { margin-left:12px; }
+			.cvb-only.cvb-only-none { background:#fcf0f1; border-color:#d63638; }
+			.cvb-filter[hidden] { display:none; }
 			.cvb-filter { display:flex; flex-wrap:wrap; gap:8px 16px; align-items:center; }
 			.cvb-shown { color:#646970; }
 			.cvb-table .cvb-code { white-space: nowrap; }
@@ -1529,15 +1549,18 @@ final class CV_Bokningsval {
 			var shown = document.getElementById( 'cvb-shown' );
 			// Typen som filtreras på är den som var sparad när sidan laddades,
 			// så att en rad inte försvinner medan man ändrar den.
+			var only = <?php echo wp_json_encode( $only_keys ); ?>;
 			function apply() {
 				var q = ( search.value || '' ).toLowerCase();
 				var n = 0;
 				document.querySelectorAll( '.cvb-table tbody' ).forEach( function ( tbody ) {
 					var visible = 0;
 					tbody.querySelectorAll( 'tr:not(.cvb-sep)' ).forEach( function ( tr ) {
-						var show = ( ! q || tr.dataset.search.indexOf( q ) !== -1 )
-							&& ( ! typ.value || tr.dataset.typ === typ.value )
-							&& ( ! todo.checked || tr.classList.contains( 'cvb-todo' ) );
+						var show = only.length
+							? only.indexOf( tr.dataset.key ) !== -1
+							: ( ! q || tr.dataset.search.indexOf( q ) !== -1 )
+								&& ( ! typ.value || tr.dataset.typ === typ.value )
+								&& ( ! todo.checked || tr.classList.contains( 'cvb-todo' ) );
 						tr.style.display = show ? '' : 'none';
 						if ( show ) {
 							visible++;

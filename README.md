@@ -48,6 +48,18 @@ En rad per reskod. Nya resor dyker upp automatiskt så fort sidan med kortkoden 
 - **Felaktig reskod**: reskoden innehåller formatering från Google Sheets eller har blivit ett datum. Rätta den på sidan och skriv den som vanlig text.
 - **Ej publicerade sidor** ligger sist i tabellen.
 
+### Visa en enda resa
+Lägg till `&reskod=` i adressen för att bara visa en resa:
+```
+https://cyklavandra.se/wp-admin/admin.php?page=bokningsformular&reskod=IT-BZRBV-08
+```
+Flera reskoder skiljs med kommatecken. Stora och små bokstäver, mellanslag och kolon spelar ingen roll. **Visa alla resor** tar tillbaka hela tabellen.
+
+I arket *Booking Codes* kan en kolumn länka direkt till resans inställningar (reskoden i kolumn B):
+```
+=HYPERLINK("https://cyklavandra.se/wp-admin/admin.php?page=bokningsformular&reskod="&ENCODEURL(B2); "Inställningar")
+```
+
 ### Import och export
 Längst ner går det att läsa in och ladda ner CSV. Flikarna BIKE och HIKE i *Booking Codes* kan läsas in direkt. Importen ändrar bara de kolumner som finns i filen.
 
