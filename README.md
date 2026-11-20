@@ -40,7 +40,7 @@ En rad per reskod. Nya resor dyker upp automatiskt så fort sidan med kortkoden 
 | **Stöld- / Assistansförsäkring** | Visas bara i formuläret om rutan är ikryssad. |
 | **Hjälm** | *Att hyra*, *Ingår* eller *Erbjuds inte*. |
 
-**Rumskategorier** (länken *Kategorier* under resans namn): för de få resor där kunden väljer t.ex. Superior eller havsutsikt. Kryssa i minst två kategorier, annars visas ingen fråga. Om leverantören har en egen reskod för kategorin, t.ex. Canal du Midi `FRSB661` för Superior, skriver du in den bredvid. Mailet till er får då rätt bokningskod.
+**Boendekategorier** (länken *Kategorier* under resans namn): för de få resor där kunden väljer t.ex. Superior eller havsutsikt. Kryssa i minst två kategorier, annars visas ingen fråga. Om leverantören har en egen reskod för kategorin, t.ex. Canal du Midi `FRSB661` för Superior, skriver du in den bredvid. Mailet till er får då rätt bokningskod.
 
 **Allt sparas direkt** när du klickar. En grön ✓ längst till höger visar att ändringen är sparad, och ett rött ! att något gick fel.
 
@@ -77,7 +77,7 @@ Längst ner går det att läsa in och ladda ner CSV. Flikarna BIKE och HIKE i *B
 | Hjälm: Ingår | *Hjälm (gratis)* och *Tar med egen* |
 | Hjälm: Erbjuds inte | Ingen hjälmruta alls. Mailen får *Tar med egen*. |
 | Stöld-/assistansförsäkring | Frågan visas bara när rutan är ikryssad |
-| Rumskategorier (minst två) | Frågan *Rumskategori* med resans kategorier, på både cykel- och vandringsresor |
+| Boendekategorier (minst två) | Frågan *Boendekategori* med resans kategorier, på både cykel- och vandringsresor |
 
 ### Regler som sätts automatiskt
 Gäller nya resor och vid import. Efteråt går allt att ändra för hand.
@@ -106,7 +106,7 @@ Tillägget styr listorna efter **position**, inte text. Därför går formuläre
 - `cykel-1` … `cykel-8`, i denna ordning: Vanlig cykel, Elcykel, Sportig cykel, Tar med egen, Gravelcykel
 - `hjalm-1` … `hjalm-8`, i denna ordning: Hyr hjälm, Tar med egen, Hjälm (gratis)
 - `rumskategori`, i denna ordning: Standard, Superior, Havsutsikt, Kategori A, Kategori B, Charm, Premium, i rutan `cvb-rum`. En ny kategori måste läggas till både i tillägget och sist i formuläret (och i översättningarna).
-- Klasserna `cvb-cykel` (raden med längd, cykel och hjälm), `cvb-stold` och `cvb-assistans` (försäkringarna) och `cvb-rum` (rumskategorin)
+- Klasserna `cvb-cykel` (raden med längd, cykel och hjälm), `cvb-stold` och `cvb-assistans` (försäkringarna) och `cvb-rum` (boendekategorin)
 - Fältet `[hidden tripcode default:shortcode_attr]`
 - Fältnamnen, eftersom mailen och Flamingo bygger på dem
 
@@ -132,9 +132,9 @@ Mail (1) går till er och Mail (2) är bekräftelsen till kunden. Mailen kan inn
 | `[cvb-hjalm-nej]…[/cvb-hjalm-nej]` | Hjälm: Erbjuds inte |
 | `[cvb-hjalm-hyra]…[/cvb-hjalm-hyra]` | Hjälm: Att hyra |
 | `[cvb-hjalm-ingar]…[/cvb-hjalm-ingar]` | Hjälm: Ingår |
-| `[cvb-rum]…[/cvb-rum]` | Kunden kunde välja rumskategori |
+| `[cvb-rum]…[/cvb-rum]` | Kunden kunde välja boendekategori |
 
-Taggen **`[cvb-reskod]`** ger reskoden för den rumskategori kunden valde, eller resans reskod om kategorin inte har någon egen. Den används som `Bokningskod: [cvb-reskod]` i Mail (1).
+Taggen **`[cvb-reskod]`** ger reskoden för den boendekategori kunden valde, eller resans reskod om kategorin inte har någon egen. Den används som `Bokningskod: [cvb-reskod]` i Mail (1).
 
 Mallarna finns i `mailmall-till-oss-sv.txt` (Mail 1) och `mailmall-bekraftelse-sv.txt` (Mail 2). Där står t.ex. längd, cykel och hjälm inom `[cvb-cykel]`, så att vandringsbokningar bara visar namnen. När mailen översätts ska taggarna `[cvb-…]` och `[/cvb-…]` stå kvar oförändrade.
 

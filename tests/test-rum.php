@@ -1,5 +1,5 @@
 <?php
-// Rumskategorier: inställningar, formuläret, reskod per kategori och mailen.
+// Boendekategorier: inställningar, formuläret, reskod per kategori och mailen.
 require __DIR__ . '/test-import.php';
 $fel = 0;
 function ok( $villkor, $text ) {
@@ -45,7 +45,7 @@ ok( 'select' === $r->type && 7 === count( $r->values ), 'bara en kategori: inget
 WPCF7_ContactForm::$attr = 'INGA';
 $r = CV_Bokningsval::filter_form_tag( $tag() );
 ok( 'select' === $r->type, 'inga kategorier: fältet frivilligt' );
-$html = '<p>x</p><div class="cvb-rum"><label> Rumskategori <select name="rumskategori"></select></label></div><p>y</p>';
+$html = '<p>x</p><div class="cvb-rum"><label> Boendekategori <select name="rumskategori"></select></label></div><p>y</p>';
 ok( '<p>x</p><p>y</p>' === CV_Bokningsval::filter_form_html( $html ), 'inga kategorier: rutan tas bort' );
 WPCF7_ContactForm::$attr = 'FRSB660';
 ok( $html === CV_Bokningsval::filter_form_html( $html ), 'med kategorier: rutan finns kvar' );
@@ -77,7 +77,7 @@ $send  = function ( $code, $form, $room ) use ( $mail1 ) {
 	return $c['body'];
 };
 $b = $send( 'FRSB660', 36488, 'Superior' );
-ok( false !== strpos( $b, "Bokningskod: FRSB661\n" ) && false !== strpos( $b, "Rumskategori: [rumskategori]\n" ), 'Canal du Midi, Superior: bokningskod FRSB661 och raden Rumskategori' );
+ok( false !== strpos( $b, "Bokningskod: FRSB661\n" ) && false !== strpos( $b, "Boendekategori: [rumskategori]\n" ), 'Canal du Midi, Superior: bokningskod FRSB661 och raden Boendekategori' );
 $b = $send( 'FRSB660', 36488, 'Standard' );
 ok( false !== strpos( $b, "Bokningskod: FRSB660\n" ), 'Canal du Midi, Standard: FRSB660' );
 $b = $send( 'DE-BORKK-07A', 36510, 'Sjarm' );
@@ -85,11 +85,11 @@ ok( false !== strpos( $b, "Bokningskod: DE-BORKK-07D\n" ), 'Bodensjön från nor
 $b = $send( 'DE-BORKK-07A', 36510, 'Kategori A' );
 ok( false !== strpos( $b, "Bokningskod: DE-BORKK-07A\n" ), 'Bodensjön, Kategori A utan egen kod: resans reskod' );
 $b = $send( 'INGA', 36488, '' );
-ok( false !== strpos( $b, "Bokningskod: INGA\n" ) && false === strpos( $b, 'Rumskategori' ) && false === strpos( $b, '[cvb-' ), 'resa utan kategorier: reskoden, ingen rad om rum' );
+ok( false !== strpos( $b, "Bokningskod: INGA\n" ) && false === strpos( $b, 'Boendekategori' ) && false === strpos( $b, '[cvb-' ), 'resa utan kategorier: reskoden, ingen rad om boende' );
 $b = $send( 'EN', 36488, '' );
-ok( false === strpos( $b, 'Rumskategori' ), 'bara en kategori: ingen rad om rum' );
+ok( false === strpos( $b, 'Boendekategori' ), 'bara en kategori: ingen rad om boende' );
 $m2 = CV_Bokningsval::apply_mail_blocks( file_get_contents( __DIR__ . '/../mailmall-bekraftelse-sv.txt' ), CV_Bokningsval::settings_for( 'ITSW250', 0 ) );
-ok( false !== strpos( $m2, "Antal resenärer: [antal]\nRumskategori: [rumskategori]\nRabattkod" ), 'bekräftelsen: raden Rumskategori på resa med val' );
+ok( false !== strpos( $m2, "Antal resenärer: [antal]\nBoendekategori: [rumskategori]\nRabattkod" ), 'bekräftelsen: raden Boendekategori på resa med val' );
 
 echo "\n--- Översättningar ---\n";
 $utan = str_replace( '<div class="cvb-rum">', '<div>', $no_form );

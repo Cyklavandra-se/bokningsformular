@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Cykla & Vandra – Bokningsformulär
  * Description: Ett bokningsformulär (Contact Form 7) för både cykel- och vandringsresor. Styr vilka cykeltyper, hjälmval och försäkringar som visas för varje resa, utifrån reskoden (tripcode) i kortkoden.
- * Version: 1.16.0
+ * Version: 1.16.1
  * Author: Cykla & Vandra
  * Requires at least: 6.0
  * Requires PHP: 7.4
@@ -40,7 +40,7 @@ final class CV_Bokningsval {
 	 */
 	const BIKE_INDEX   = array( 0 => 'vanlig', 1 => 'el', 2 => 'sportig', 4 => 'gravel', 3 => 'egen' );
 	/**
-	 * Rumskategorier i listan rumskategori, efter position (Pär, 2026-11-19).
+	 * Boendekategorier i listan rumskategori, efter position (Pär, 2026-11-19).
 	 * Nya kategorier läggs till sist, både här och i formuläret, så att de
 	 * befintliga positionerna inte flyttas.
 	 *
@@ -328,7 +328,7 @@ final class CV_Bokningsval {
 		return $clean;
 	}
 
-	/** Rumskategorierna resan erbjuder. Rutan visas bara när det finns minst två att välja mellan. */
+	/** Boendekategorierna resan erbjuder. Rutan visas bara när det finns minst två att välja mellan. */
 	public static function room_options( $s ) {
 		$rum = isset( $s['rum'] ) && is_array( $s['rum'] ) ? $s['rum'] : array();
 		return array_values( array_intersect( self::ROOM_INDEX, $rum ) );
@@ -339,7 +339,7 @@ final class CV_Bokningsval {
 	}
 
 	/**
-	 * Reskoden för den rumskategori kunden valde (nyckel som i ROOM_INDEX), eller
+	 * Reskoden för den boendekategori kunden valde (nyckel som i ROOM_INDEX), eller
 	 * resans egen reskod när kategorin saknar egen kod.
 	 */
 	public static function code_for_room( $code, $s, $room_key ) {
@@ -475,7 +475,7 @@ final class CV_Bokningsval {
 
 		$s = self::current_settings();
 
-		// Rumskategori: bara resans kategorier, och bara när det finns ett val (gäller även vandring).
+		// Boendekategori: bara resans kategorier, och bara när det finns ett val (gäller även vandring).
 		if ( $is_room ) {
 			if ( ! self::has_room_choice( $s ) ) {
 				return self::make_optional( $tag );
@@ -596,7 +596,7 @@ final class CV_Bokningsval {
 			// Försäkringarna visas bara på cykelresor som erbjuder dem (Pär, 2026-11-18).
 			'cvb-stold'       => $bike && ! empty( $s['stold'] ),
 			'cvb-assistans'   => $bike && ! empty( $s['assistans'] ),
-			// Rumskategori: bara på resor där kunden kan välja (Pär, 2026-11-19).
+			// Boendekategori: bara på resor där kunden kan välja (Pär, 2026-11-19).
 			'cvb-rum'         => self::has_room_choice( $s ),
 		);
 	}
@@ -624,7 +624,7 @@ final class CV_Bokningsval {
 			return $components;
 		}
 		$s = self::current_settings();
-		// [cvb-reskod]: reskoden för den rumskategori kunden valde, annars resans reskod.
+		// [cvb-reskod]: reskoden för den boendekategori kunden valde, annars resans reskod.
 		$form_id  = isset( $_POST['_wpcf7'] ) ? (int) $_POST['_wpcf7'] : 0; // phpcs:ignore WordPress.Security.NonceVerification
 		$posted   = isset( $_POST['rumskategori'] ) ? sanitize_text_field( wp_unslash( $_POST['rumskategori'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification
 		$room_key = $form_id ? self::posted_room_key( get_post_meta( $form_id, '_form', true ), $posted ) : '';
@@ -1531,7 +1531,7 @@ final class CV_Bokningsval {
 									<span class="cvb-langs"><?php echo esc_html( strtoupper( implode( ' · ', $tour['langs'] ) ) ); ?></span>
 								<?php endif; ?>
 								<?php
-								// Rumskategorier: en panel per resa, bara för de få resor som har val (Pär, 2026-11-19).
+								// Boendekategorier: en panel per resa, bara för de få resor som har val (Pär, 2026-11-19).
 								$rooms     = self::room_choices();
 								$room_sel  = self::room_options( $s );
 								$room_text = array();
@@ -1543,7 +1543,7 @@ final class CV_Bokningsval {
 									<button type="button" class="button-link cvb-rum-toggle" aria-expanded="false">Kategorier<?php echo $room_sel ? ': ' . esc_html( implode( ', ', $room_text ) ) : ''; ?></button>
 									<?php if ( 1 === count( $room_sel ) ) : ?><span class="cvb-rum-warn" title="Rutan visas bara när det finns minst två kategorier">bara en kategori, visas inte</span><?php endif; ?>
 									<div class="cvb-rum-panel" hidden>
-										<p class="cvb-rum-help">Kryssa i de rumskategorier kunden kan välja mellan (minst två). Fyll i en reskod om kategorin bokas med en annan kod än resans <code><?php echo esc_html( $code ); ?></code>.</p>
+										<p class="cvb-rum-help">Kryssa i de boendekategorier kunden kan välja mellan (minst två). Fyll i en reskod om kategorin bokas med en annan kod än resans <code><?php echo esc_html( $code ); ?></code>.</p>
 										<?php foreach ( $rooms as $rk => $rlabel ) : ?>
 											<label class="cvb-rum-row">
 												<input type="checkbox" name="<?php echo $n; ?>[rum][<?php echo esc_attr( $rk ); ?>]" value="1" <?php checked( in_array( $rk, $room_sel, true ) ); ?>>
