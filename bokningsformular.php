@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Cykla & Vandra – Bokningsformulär
  * Description: Ett bokningsformulär (Contact Form 7) för både cykel- och vandringsresor. Styr vilka cykeltyper, hjälmval och försäkringar som visas för varje resa, utifrån reskoden (tripcode) i kortkoden.
- * Version: 1.18.0
+ * Version: 1.18.1
  * Author: Cykla & Vandra
  * Requires at least: 6.0
  * Requires PHP: 7.4
@@ -1341,12 +1341,16 @@ final class CV_Bokningsval {
 					och klistra in mallen nedan under fliken Formulär. Därefter visas en knapp för att kopiera kortkoden för varje resa.
 				</p>
 			<?php endif; ?>
+			<?php if ( $official && ! empty( $official['post_id'] ) ) : ?>
+				<p><a href="<?php echo esc_url( admin_url( 'admin.php?page=wpcf7&post=' . (int) $official['post_id'] . '&action=edit' ) ); ?>">Länk till bokningsformuläret</a></p>
+			<?php else : ?>
 			<details>
 				<summary>Visa formulärmallen (fliken Formulär i Contact Form 7)</summary>
 				<p>Klistra in i ett nytt eller befintligt bokningsformulär. Fältnamnen är desamma som förut, så mailen och Flamingo fungerar som tidigare.</p>
 				<textarea readonly rows="12" class="large-text code cvb-copy-src"><?php echo esc_textarea( $template ); ?></textarea>
 				<p><button type="button" class="button cvb-copy">Kopiera mallen</button></p>
 			</details>
+			<?php endif; ?>
 		</div>
 		<?php
 	}

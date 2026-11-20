@@ -26,7 +26,7 @@ Finns under **Cykla&Vandra → Bokningsformulär** i vänstermenyn.
 ### Rutan överst
 - Kortkoden för bokningsformuläret med en **Kopiera**-knapp. Byt `RESKOD` mot resans reskod.
 - Varningar om något behöver göras, t.ex. att en översättning av formuläret inte stämmer med originalet.
-- **Visa formulärmallen**: hela formulärtexten, färdig att kopiera.
+- **Länk till bokningsformuläret**: öppnar formuläret för redigering i Contact Form 7.
 
 ### Tabellen
 En rad per reskod. Nya resor dyker upp automatiskt så fort sidan med kortkoden är sparad, även som utkast.
@@ -99,7 +99,7 @@ Gäller nya resor och vid import. Efteråt går allt att ändra för hand.
 
 ## Formuläret
 
-Formulärtexten finns i `formularmall-sv.txt` och under **Visa formulärmallen** på sidan Bokningsformulär.
+Formulärtexten finns i `formularmall-sv.txt`. På sidan Bokningsformulär öppnar **Länk till bokningsformuläret** formuläret i Contact Form 7.
 
 Tillägget styr listorna efter **position**, inte text. Därför går formuläret att översätta. Det som måste vara likadant på alla språk:
 
