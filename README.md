@@ -35,7 +35,7 @@ En rad per reskod. Nya resor dyker upp automatiskt så fort sidan med kortkoden 
 |---|---|
 | **Typ** | **C** = cykel, **V** = vandring. Klicka för att byta. |
 | **Leverantör / Reskod** | Leverantören fylls i automatiskt från *Booking Codes*, men går att skriva i. |
-| **Resa** | Namnet öppnar sidan för redigering, ↗ öppnar resans sida. |
+| **Resa** | Namnet öppnar resans sida i en ny flik. |
 | **Vanlig cykel … Egen cykel** | Vilka cyklar kunden kan välja (Vanlig, El, Sportig, Gravel, Egen). |
 | **Stöld- / Assistansförsäkring** | Visas bara i formuläret om rutan är ikryssad. |
 | **Hjälm** | *Att hyra*, *Ingår* eller *Erbjuds inte*. |

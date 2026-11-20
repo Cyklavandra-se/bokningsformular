@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Cykla & Vandra – Bokningsformulär
  * Description: Ett bokningsformulär (Contact Form 7) för både cykel- och vandringsresor. Styr vilka cykeltyper, hjälmval och försäkringar som visas för varje resa, utifrån reskoden (tripcode) i kortkoden.
- * Version: 1.15.0
+ * Version: 1.15.1
  * Author: Cykla & Vandra
  * Requires at least: 6.0
  * Requires PHP: 7.4
@@ -1503,8 +1503,8 @@ final class CV_Bokningsval {
 								<code<?php echo self::code_problem( $code ) ? ' class="cvb-bad-code"' : ''; ?>><?php echo esc_html( $code ); ?></code>
 							</td>
 							<td>
-								<a href="<?php echo esc_url( get_edit_post_link( $tour['id'] ) ); ?>" title="Redigera sidan"><?php echo esc_html( $tour['title'] ); ?></a>
-								<a href="<?php echo esc_url( get_permalink( $tour['id'] ) ); ?>" class="cvb-view" target="_blank" rel="noopener" title="Visa resans sida" aria-label="Visa resans sida (öppnas i ny flik)">&#8599;</a>
+								<?php // Namnet öppnar resans sida i en ny flik (Pär, 2026-11-20). ?>
+								<a href="<?php echo esc_url( get_permalink( $tour['id'] ) ); ?>" target="_blank" rel="noopener" title="Visa resans sida (öppnas i ny flik)"><?php echo esc_html( $tour['title'] ); ?></a>
 								<?php if ( 'publish' !== $tour['status'] ) : ?>
 									<em class="cvb-status">(<?php echo esc_html( self::status_label( $tour['status'] ) ); ?>)</em>
 								<?php endif; ?>
@@ -1673,7 +1673,6 @@ final class CV_Bokningsval {
 			.cvb-typ-menu[hidden] { display:none; }
 			.cvb-typ-menu button { text-align:left; padding:6px 10px; border:0; background:none; border-radius:4px; cursor:pointer; font-size:13px; }
 			.cvb-typ-menu button:hover, .cvb-typ-menu button:focus { background:#f0f0f1; }
-			.cvb-view { margin-left:4px; text-decoration:none; font-size:15px; }
 		</style>
 		<script>
 		( function () {
