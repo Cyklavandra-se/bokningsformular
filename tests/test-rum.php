@@ -10,8 +10,8 @@ function ok( $villkor, $text ) {
 	}
 }
 $sv_form = file_get_contents( __DIR__ . '/../formularmall-sv.txt' );
-$no_form = str_replace( '"Standard" "Superior" "Havsutsikt" "Kategori A" "Kategori B" "Charm"', '"Standard" "Superior" "Havutsikt" "Kategori A" "Kategori B" "Sjarm"', $sv_form );
-$all     = array( 'Standard', 'Superior', 'Havsutsikt', 'Kategori A', 'Kategori B', 'Charm' );
+$no_form = str_replace( '"Standard" "Superior" "Havsutsikt" "Kategori A" "Kategori B" "Charm" "Premium"', '"Standard" "Superior" "Havutsikt" "Kategori A" "Kategori B" "Sjarm" "Premium"', $sv_form );
+$all     = array( 'Standard', 'Superior', 'Havsutsikt', 'Kategori A', 'Kategori B', 'Charm', 'Premium' );
 
 echo "\n--- Inställningar ---\n";
 $row = CV_Bokningsval::sanitize_row( array( 'typ' => 'cykel', 'rum' => array( 'standard' => '1', 'superior' => '1', 'hack' => '1' ), 'rum_kod' => array( 'standard' => ' FRSB660 ', 'superior' => 'FRSB661', 'charm' => '' ) ) );
@@ -41,7 +41,7 @@ $r = CV_Bokningsval::filter_form_tag( $tag() );
 ok( array( 'Standard', 'Havsutsikt' ) === $r->values, 'vandringsresa med havsutsikt: rutan finns' );
 WPCF7_ContactForm::$attr = 'EN';
 $r = CV_Bokningsval::filter_form_tag( $tag() );
-ok( 'select' === $r->type && 6 === count( $r->values ), 'bara en kategori: inget val, fältet frivilligt' );
+ok( 'select' === $r->type && 7 === count( $r->values ), 'bara en kategori: inget val, fältet frivilligt' );
 WPCF7_ContactForm::$attr = 'INGA';
 $r = CV_Bokningsval::filter_form_tag( $tag() );
 ok( 'select' === $r->type, 'inga kategorier: fältet frivilligt' );
@@ -58,6 +58,13 @@ ok( 'charm' === CV_Bokningsval::posted_room_key( $no_form, 'Sjarm' ), 'norska: S
 ok( 'havsutsikt' === CV_Bokningsval::posted_room_key( '[select* rumskategori "Standard" "Superior|Superior" "Med havsutsikt|Havsutsikt"]', 'Med havsutsikt' ), 'formulär med pipes' );
 ok( '' === CV_Bokningsval::posted_room_key( $sv_form, 'Okänt' ), 'okänt värde: ingen kategori' );
 ok( '' === CV_Bokningsval::posted_room_key( '[text namn]', 'Superior' ), 'formulär utan rumskategori' );
+
+ok( 'premium' === CV_Bokningsval::posted_room_key( $sv_form, 'Premium' ), 'Premium (plats 7)' );
+ok( '' === CV_Bokningsval::posted_room_key( '[select* rumskategori "Standard" "Superior" "Havsutsikt" "Kategori A" "Kategori B" "Charm"]', 'Premium' ), 'formulär utan Premium: inget fel' );
+$GLOBALS['opts']['cvb_settings']['PREM'] = CV_Bokningsval::sanitize_row( array( 'typ' => 'cykel', 'rum' => array( 'standard' => 1, 'premium' => 1 ), 'rum_kod' => array( 'premium' => 'PREM-P' ) ) );
+WPCF7_ContactForm::$attr = 'PREM';
+ok( array( 'Standard', 'Premium' ) === CV_Bokningsval::filter_form_tag( $tag() )->values, 'Standard och Premium' );
+WPCF7_ContactForm::$attr = '';
 
 echo "\n--- Mailen ---\n";
 $GLOBALS['cf7_posts'][36488] = array( 'title' => 'Bokningsformulär', '_form' => $sv_form, '_hash' => 'ca124e5xx' );
