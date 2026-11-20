@@ -112,6 +112,8 @@ Tillägget styr listorna efter **position**, inte text. Därför går formuläre
 
 Texterna får vara på valfritt språk. **Nya alternativ läggs sist** i listan, så att de gamla positionerna inte flyttas.
 
+Tillägget lägger också till lite luft mellan formulärets delar: kunden, resan (från Ankomstdatum), resenärerna och villkoren. CSS:en finns i `form_css()` i `bokningsformular.php` och utgår från fältnamnen, så formuläret behöver inte ändras.
+
 ### Översättningar (WPML)
 Översätt formuläret i WPML, även mailen. Ändras det svenska formuläret måste översättningarna uppdateras. Tillägget jämför varje översättning med originalet och **varnar** överst på sidan Bokningsformulär, i Contact Form 7 och på kontrollpanelen om något fält, alternativ eller språk saknas. Texterna jämförs inte.
 

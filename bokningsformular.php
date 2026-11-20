@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Cykla & Vandra – Bokningsformulär
  * Description: Ett bokningsformulär (Contact Form 7) för både cykel- och vandringsresor. Styr vilka cykeltyper, hjälmval och försäkringar som visas för varje resa, utifrån reskoden (tripcode) i kortkoden.
- * Version: 1.17.0
+ * Version: 1.18.0
  * Author: Cykla & Vandra
  * Requires at least: 6.0
  * Requires PHP: 7.4
@@ -232,6 +232,7 @@ final class CV_Bokningsval {
 		add_filter( 'shortcode_atts_wpcf7', array( __CLASS__, 'allow_tripcode_attr' ), 10, 3 );
 		add_filter( 'wpcf7_form_tag', array( __CLASS__, 'filter_form_tag' ), 20, 2 );
 		add_filter( 'wpcf7_form_elements', array( __CLASS__, 'filter_form_html' ), 20 );
+		add_filter( 'wpcf7_form_elements', array( __CLASS__, 'add_form_css' ), 30 );
 		add_filter( 'wpcf7_mail_components', array( __CLASS__, 'filter_mail_components' ), 20 );
 
 		if ( is_admin() ) {
@@ -640,6 +641,32 @@ final class CV_Bokningsval {
 			}
 		}
 		return $components;
+	}
+
+	/**
+	 * Luft mellan formulärets delar (Pär, 2026-11-20): kunden, resan, resenärerna
+	 * och villkoren. Bara i bokningsformuläret (det med fältet tripcode), och
+	 * styrt av fältnamnen, så formuläret och översättningarna behöver inte ändras.
+	 */
+	public static function form_css() {
+		$f = 'form.wpcf7-form:has(input[name="tripcode"])';
+		return $f . ' label:has([name="datum"]) { display: block; margin-top: 2em; }'
+			. $f . ' hr { margin: 2em 0 0; }'
+			. $f . ' label:has([name="antal"]) { display: block; margin-top: 1em; }'
+			. $f . ' strong { display: block; margin-top: 1.8em; margin-bottom: .2em; }'
+			. $f . ' p + strong { margin-top: .5em; }'
+			. $f . ' .faktura-hjalp { margin-top: 1.8em; }'
+			. $f . ' .faktura-hjalp + strong { margin-top: .8em; }';
+	}
+
+	/** Lägger in CSS:en en gång per sida, före bokningsformuläret. */
+	public static function add_form_css( $html ) {
+		static $done = false;
+		if ( $done || false === strpos( $html, 'name="tripcode"' ) ) {
+			return $html;
+		}
+		$done = true;
+		return '<style id="cvb-form-css">' . self::form_css() . '</style>' . $html;
 	}
 
 	public static function filter_form_html( $html ) {
