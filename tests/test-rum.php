@@ -11,7 +11,7 @@ function ok( $villkor, $text ) {
 }
 $sv_form = file_get_contents( __DIR__ . '/../formularmall-sv.txt' );
 $no_form = str_replace( '"Standard" "Superior" "Havsutsikt" "Kategori A" "Kategori B" "Charm" "Premium"', '"Standard" "Superior" "Havutsikt" "Kategori A" "Kategori B" "Sjarm" "Premium"', $sv_form );
-$all     = array( 'Standard', 'Superior', 'Havsutsikt', 'Kategori A', 'Kategori B', 'Charm', 'Premium' );
+$all     = array( 'Standard', 'Superior', 'Havsutsikt', 'Kategori A', 'Kategori B', 'Charm', 'Premium', 'Nivå A', 'Nivå B' );
 
 echo "\n--- Inställningar ---\n";
 $row = CV_Bokningsval::sanitize_row( array( 'typ' => 'cykel', 'rum' => array( 'standard' => '1', 'superior' => '1', 'hack' => '1' ), 'rum_kod' => array( 'standard' => ' FRSB660 ', 'superior' => 'FRSB661', 'charm' => '' ) ) );
@@ -41,7 +41,7 @@ $r = CV_Bokningsval::filter_form_tag( $tag() );
 ok( array( 'Standard', 'Havsutsikt' ) === $r->values, 'vandringsresa med havsutsikt: rutan finns' );
 WPCF7_ContactForm::$attr = 'EN';
 $r = CV_Bokningsval::filter_form_tag( $tag() );
-ok( 'select' === $r->type && 7 === count( $r->values ), 'bara en kategori: inget val, fältet frivilligt' );
+ok( 'select' === $r->type && 9 === count( $r->values ), 'bara en kategori: inget val, fältet frivilligt' );
 WPCF7_ContactForm::$attr = 'INGA';
 $r = CV_Bokningsval::filter_form_tag( $tag() );
 ok( 'select' === $r->type, 'inga kategorier: fältet frivilligt' );
@@ -64,6 +64,11 @@ ok( '' === CV_Bokningsval::posted_room_key( '[select* rumskategori "Standard" "S
 $GLOBALS['opts']['cvb_settings']['PREM'] = CV_Bokningsval::sanitize_row( array( 'typ' => 'cykel', 'rum' => array( 'standard' => 1, 'premium' => 1 ), 'rum_kod' => array( 'premium' => 'PREM-P' ) ) );
 WPCF7_ContactForm::$attr = 'PREM';
 ok( array( 'Standard', 'Premium' ) === CV_Bokningsval::filter_form_tag( $tag() )->values, 'Standard och Premium' );
+$GLOBALS['opts']['cvb_settings']['NIVA'] = CV_Bokningsval::sanitize_row( array( 'typ' => 'vandring', 'rum' => array( 'niva_a' => 1, 'niva_b' => 1 ), 'rum_kod' => array( 'niva_b' => 'NIVA-B' ) ) );
+WPCF7_ContactForm::$attr = 'NIVA';
+ok( array( 'Nivå A', 'Nivå B' ) === CV_Bokningsval::filter_form_tag( $tag() )->values, 'Nivå A och Nivå B' );
+ok( 'niva_b' === CV_Bokningsval::posted_room_key( $sv_form, 'Nivå B' ), 'Nivå B (plats 9)' );
+ok( 'NIVA-B' === CV_Bokningsval::code_for_room( 'NIVA', $GLOBALS['opts']['cvb_settings']['NIVA'], 'niva_b' ), 'Nivå B: egen reskod' );
 WPCF7_ContactForm::$attr = '';
 
 echo "\n--- Mailen ---\n";

@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Cykla & Vandra – Bokningsformulär
  * Description: Ett bokningsformulär (Contact Form 7) för både cykel- och vandringsresor. Styr vilka cykeltyper, hjälmval och försäkringar som visas för varje resa, utifrån reskoden (tripcode) i kortkoden.
- * Version: 1.16.1
+ * Version: 1.17.0
  * Author: Cykla & Vandra
  * Requires at least: 6.0
  * Requires PHP: 7.4
@@ -44,8 +44,8 @@ final class CV_Bokningsval {
 	 * Nya kategorier läggs till sist, både här och i formuläret, så att de
 	 * befintliga positionerna inte flyttas.
 	 *
-	 * rumskategori: "Standard" "Superior" "Havsutsikt" "Kategori A" "Kategori B" "Charm" "Premium"
-	 * (Premium lades till 2026-11-20.)
+	 * rumskategori: "Standard" "Superior" "Havsutsikt" "Kategori A" "Kategori B" "Charm" "Premium" "Nivå A" "Nivå B"
+	 * (Premium, Nivå A och Nivå B lades till 2026-11-20.)
 	 */
 	const ROOM_INDEX = array(
 		0 => 'standard',
@@ -55,6 +55,8 @@ final class CV_Bokningsval {
 		4 => 'kat_b',
 		5 => 'charm',
 		6 => 'premium',
+		7 => 'niva_a',
+		8 => 'niva_b',
 	);
 
 	public static function room_choices() {
@@ -66,6 +68,8 @@ final class CV_Bokningsval {
 			'kat_b'      => 'Kategori B',
 			'charm'      => 'Charm',
 			'premium'    => 'Premium',
+			'niva_a'     => 'Nivå A',
+			'niva_b'     => 'Nivå B',
 		);
 	}
 

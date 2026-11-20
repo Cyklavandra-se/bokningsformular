@@ -105,7 +105,7 @@ Tillägget styr listorna efter **position**, inte text. Därför går formuläre
 
 - `cykel-1` … `cykel-8`, i denna ordning: Vanlig cykel, Elcykel, Sportig cykel, Tar med egen, Gravelcykel
 - `hjalm-1` … `hjalm-8`, i denna ordning: Hyr hjälm, Tar med egen, Hjälm (gratis)
-- `rumskategori`, i denna ordning: Standard, Superior, Havsutsikt, Kategori A, Kategori B, Charm, Premium, i rutan `cvb-rum`. En ny kategori måste läggas till både i tillägget och sist i formuläret (och i översättningarna).
+- `rumskategori`, i denna ordning: Standard, Superior, Havsutsikt, Kategori A, Kategori B, Charm, Premium, Nivå A, Nivå B, i rutan `cvb-rum`. En ny kategori måste läggas till både i tillägget och sist i formuläret (och i översättningarna).
 - Klasserna `cvb-cykel` (raden med längd, cykel och hjälm), `cvb-stold` och `cvb-assistans` (försäkringarna) och `cvb-rum` (boendekategorin)
 - Fältet `[hidden tripcode default:shortcode_attr]`
 - Fältnamnen, eftersom mailen och Flamingo bygger på dem

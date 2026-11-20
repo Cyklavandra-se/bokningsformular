@@ -30,7 +30,7 @@
     [date* datum min:today+7days] </label>
 
 <div class="cvb-rum"><label> Boendekategori
-[select* rumskategori include_blank "Standard" "Superior" "Havsutsikt" "Kategori A" "Kategori B" "Charm" "Premium"]</label></div>
+[select* rumskategori include_blank "Standard" "Superior" "Havsutsikt" "Kategori A" "Kategori B" "Charm" "Premium" "Nivå A" "Nivå B"]</label></div>
 
 <div class="cvb-stold"><label> Stöldförsäkring hyrcykel (rekommenderas):
 [select* cykelforsakring include_blank "Ja" "Nej"]</label></div>
