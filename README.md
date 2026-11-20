@@ -79,6 +79,10 @@ Längst ner går det att läsa in och ladda ner CSV. Flikarna BIKE och HIKE i *B
 | Stöld-/assistansförsäkring | Frågan visas bara när rutan är ikryssad |
 | Boendekategorier (minst två) | Frågan *Boendekategori* med resans kategorier, på både cykel- och vandringsresor |
 
+### Kontroller när kunden bokar
+
+När kunden klickar på BOKA RESA kontrollerar tillägget, utöver Contact Form 7:s vanliga kontroller, att e-postadressens domän kan ta emot e-post och att postnumret innehåller siffror. Det gäller även fakturaadresserna. Är något fel skickas ingenting, och kunden ser ett felmeddelande vid fältet (på formulärets språk) och kan rätta det. Det stoppar påhittade bokningar som spamskydden släpper igenom eftersom en människa fyllt i dem.
+
 ### Regler som sätts automatiskt
 Gäller nya resor och vid import. Efteråt går allt att ändra för hand.
 - **Eurobike, Radweg-Reisen och Velociped** (reskoder som börjar med landskod och bindestreck, t.ex. `DE-`, `IT-`): *Sportig cykel* ikryssad och *Hjälm: Erbjuds inte*.
@@ -164,6 +168,8 @@ Om något går fel efter en uppdatering kan en äldre version installeras manuel
 | Formuläret visar standardläget i stället för resans val | Reskoden på sidan stämmer inte exakt med den i tabellen (stora/små bokstäver, mellanslag). |
 | Det norska formuläret ser annorlunda ut | Välj samma CF7 Skins-stil på den norska översättningen. |
 | En sida visar fortfarande det gamla formuläret | Töm cachen i WP Fastest Cache. |
+| Kunden får "Kontrollera e-postadressen" | Domänen efter @ kan inte ta emot e-post (stavfel som `telia.con`, eller en påhittad adress). Kontrollen finns sedan 1.19.0 och stoppar falska bokningar. |
+| Kunden får "Kontrollera postnumret" | Postnumret innehåller ingen siffra. |
 | `[cvb-…]` syns i ett mail | Formuläret skickades utan reskod, mallen har ett stavfel i en tagg, eller tillägget är avaktiverat. |
 
 ---

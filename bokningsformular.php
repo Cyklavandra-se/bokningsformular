@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Cykla & Vandra – Bokningsformulär
  * Description: Ett bokningsformulär (Contact Form 7) för både cykel- och vandringsresor. Styr vilka cykeltyper, hjälmval och försäkringar som visas för varje resa, utifrån reskoden (tripcode) i kortkoden.
- * Version: 1.18.2
+ * Version: 1.19.0
  * Author: Cykla & Vandra
  * Requires at least: 6.0
  * Requires PHP: 7.4
@@ -234,6 +234,9 @@ final class CV_Bokningsval {
 		add_filter( 'wpcf7_form_elements', array( __CLASS__, 'filter_form_html' ), 20 );
 		add_filter( 'wpcf7_form_elements', array( __CLASS__, 'add_form_css' ), 30 );
 		add_filter( 'wpcf7_mail_components', array( __CLASS__, 'filter_mail_components' ), 20 );
+		foreach ( array( 'email', 'email*', 'text', 'text*' ) as $type ) {
+			add_filter( 'wpcf7_validate_' . $type, array( __CLASS__, 'validate_field' ), 20, 2 );
+		}
 
 		if ( is_admin() ) {
 			add_action( 'admin_init', array( __CLASS__, 'migrate' ) );
@@ -419,6 +422,88 @@ final class CV_Bokningsval {
 	}
 
 	/** Reskoden för formuläret som visas eller skickas just nu. */
+	/**
+	 * Kontroller vid inskick mot falska bokningar (Pär, 2026-11-20). En bokning
+	 * med e-post på kfkfkfk.fd och postnummer "Ll" kom igenom Turnstile och
+	 * honeypot, eftersom en människa fyllde i den. Gäller bara bokningsformuläret
+	 * (inskick med reskod) och bara ifyllda fält; tomma obligatoriska fält sköter CF7.
+	 */
+	const EMAIL_FIELDS   = '/^(your-email|epost-\d+)$/';
+	const POSTCODE_FIELD = '/^postnummer(-\d+)?$/';
+
+	/** DNS-uppslaget, utbytbart i testerna. */
+	public static $dns_lookup = 'checkdnsrr';
+
+	public static function validate_field( $result, $tag ) {
+		$name = is_object( $tag ) ? (string) $tag->name : '';
+		if ( '' === $name || '' === self::current_tripcode() || ! isset( $_POST[ $name ] ) ) { // phpcs:ignore WordPress.Security.NonceVerification
+			return $result;
+		}
+		$value = trim( (string) wp_unslash( $_POST[ $name ] ) ); // phpcs:ignore WordPress.Security.NonceVerification
+		if ( '' === $value || ( method_exists( $result, 'is_valid' ) && ! $result->is_valid( $name ) ) ) {
+			return $result;
+		}
+		$message = '';
+		if ( preg_match( self::EMAIL_FIELDS, $name ) && ! self::email_domain_ok( $value ) ) {
+			$message = self::message( 'email' );
+		} elseif ( preg_match( self::POSTCODE_FIELD, $name ) && ! preg_match( '/\d/', $value ) ) {
+			$message = self::message( 'postcode' );
+		}
+		if ( $message ) {
+			$result->invalidate( $tag, $message );
+		}
+		return $result;
+	}
+
+	/**
+	 * Kan domänen ta emot e-post (MX, annars A/AAAA)? Svarar DNS inte ens för
+	 * gmail.com är uppslaget trasigt på servern, och då släpps adressen igenom
+	 * hellre än att riktiga kunder stoppas.
+	 */
+	public static function email_domain_ok( $email ) {
+		$at = strrpos( $email, '@' );
+		if ( false === $at ) {
+			return true; // Formatet kontrolleras av CF7.
+		}
+		$domain = rtrim( strtolower( substr( $email, $at + 1 ) ), '.' );
+		if ( '' === $domain ) {
+			return false;
+		}
+		if ( function_exists( 'idn_to_ascii' ) && preg_match( '/[^\x00-\x7F]/', $domain ) ) {
+			$ascii  = idn_to_ascii( $domain, 0, defined( 'INTL_IDNA_VARIANT_UTS46' ) ? INTL_IDNA_VARIANT_UTS46 : 0 );
+			$domain = $ascii ? $ascii : $domain;
+		}
+		$dns = self::$dns_lookup;
+		if ( ! is_callable( $dns ) ) {
+			return true;
+		}
+		foreach ( array( 'MX', 'A', 'AAAA' ) as $type ) {
+			if ( call_user_func( $dns, $domain . '.', $type ) ) {
+				return true;
+			}
+		}
+		return ! call_user_func( $dns, 'gmail.com.', 'MX' );
+	}
+
+	/** Felmeddelandet på formulärets språk (_wpcf7_locale), annars svenska. */
+	public static function message( $key ) {
+		$locale = isset( $_POST['_wpcf7_locale'] ) ? strtolower( (string) $_POST['_wpcf7_locale'] ) : ''; // phpcs:ignore WordPress.Security.NonceVerification
+		$lang   = preg_match( '/^(nb|nn|no)/', $locale ) ? 'no' : ( '' === $locale || 0 === strpos( $locale, 'sv' ) ? 'sv' : 'en' );
+		$texts  = array(
+			'email'    => array(
+				'sv' => 'Kontrollera e-postadressen. Domänen efter @ kan inte ta emot e-post.',
+				'no' => 'Kontroller e-postadressen. Domenet etter @ kan ikke motta e-post.',
+				'en' => 'Please check the email address. The domain after @ cannot receive email.',
+			),
+			'postcode' => array(
+				'sv' => 'Kontrollera postnumret.',
+				'no' => 'Kontroller postnummeret.',
+				'en' => 'Please check the postal code.',
+			),
+		);
+		return $texts[ $key ][ $lang ];
+	}
+
 	public static function current_tripcode() {
 		// Vid inskick: det dolda fältet [hidden tripcode default:shortcode_attr].
 		if ( isset( $_POST['_wpcf7'], $_POST['tripcode'] ) ) { // phpcs:ignore WordPress.Security.NonceVerification
