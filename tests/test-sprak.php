@@ -79,6 +79,11 @@ ok( 'Elcykel' === $val( 40003, 'cykel-1', 'E-bike' ), 'engelska med pipes: etike
 ok( 'Sähköpyörä' === $val( 40002, 'cykel-1', 'Sähköpyörä', 'mail_2' ), 'Mail (2) till kunden: kundens språk' );
 ok( 'Elcykel' === $val( 36488, 'cykel-1', 'Elcykel' ), 'svenska formuläret: oförändrat' );
 ok( 'Okänd' === $val( 40002, 'cykel-1', 'Okänd' ), 'okänt värde: skickas som det är' );
+// Snippeten "alltid på svenska till oss" har redan gjort om värdet till svenska (wpcf7_posted_data).
+ok( 'Elcykel' === $val( 40002, 'cykel-1', 'Elcykel' ), 'redan svenskt värde (snippeten): oförändrat, finska' );
+ok( 'Elcykel' === $val( 40001, 'cykel-1', 'Elcykel' ), 'redan svenskt värde (snippeten): oförändrat, danska' );
+ok( 'Tar med egen' === $val( 40002, 'hjalm-1', 'Tar med egen' ), 'redan svenskt hjälmvärde: oförändrat' );
+ok( 'Ingen egen faktura' === $val( 40001, 'faktura-2', 'Ingen egen faktura' ), 'redan svenskt fakturaval: oförändrat' );
 $_POST = array( '_wpcf7' => '40002', 'tripcode' => '' );
 WPCF7_Mail::$cur = 'mail';
 ok( 'Sähköpyörä' === CV_Bokningsval::swedish_mail_value( 'Sähköpyörä', 'Sähköpyörä', false, new MailTag( 'cykel-1' ) ), 'utan reskod: oförändrat' );
