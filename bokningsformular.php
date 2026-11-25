@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Cykla & Vandra – Bokningsformulär
  * Description: Ett bokningsformulär (Contact Form 7) för både cykel- och vandringsresor. Styr vilka cykeltyper, hjälmval och försäkringar som visas för varje resa, utifrån reskoden (tripcode) i kortkoden.
- * Version: 1.19.0
+ * Version: 1.20.0
  * Author: Cykla & Vandra
  * Requires at least: 6.0
  * Requires PHP: 7.4
@@ -234,6 +234,7 @@ final class CV_Bokningsval {
 		add_filter( 'wpcf7_form_elements', array( __CLASS__, 'filter_form_html' ), 20 );
 		add_filter( 'wpcf7_form_elements', array( __CLASS__, 'add_form_css' ), 30 );
 		add_filter( 'wpcf7_mail_components', array( __CLASS__, 'filter_mail_components' ), 20 );
+		add_filter( 'wpcf7_mail_tag_replaced', array( __CLASS__, 'swedish_mail_value' ), 20, 4 );
 		foreach ( array( 'email', 'email*', 'text', 'text*' ) as $type ) {
 			add_filter( 'wpcf7_validate_' . $type, array( __CLASS__, 'validate_field' ), 20, 2 );
 		}
@@ -362,18 +363,91 @@ final class CV_Bokningsval {
 	 * jämförs med alternativen i det formulär som skickades (rätt språk), efter position.
 	 */
 	public static function posted_room_key( $form_body, $posted ) {
-		$posted = trim( (string) $posted );
-		if ( '' === $posted || ! preg_match( '/\[select\*?\s+rumskategori\b([^\]]*)\]/', (string) $form_body, $m ) ) {
-			return '';
+		$i = self::option_index( $form_body, 'rumskategori', $posted );
+		return ( null !== $i && isset( self::ROOM_INDEX[ $i ] ) ) ? self::ROOM_INDEX[ $i ] : '';
+	}
+
+	/** Alternativen i en lista (select, radio, checkbox) i ett formulär, som de står i taggen. */
+	public static function tag_options( $form_body, $name ) {
+		if ( ! preg_match( '/\[(?:select|radio|checkbox)\*?\s+' . preg_quote( $name, '/' ) . '(?=[\s\]])([^\]]*)\]/', (string) $form_body, $m ) ) {
+			return array();
 		}
 		preg_match_all( '/"([^"]*)"/', $m[1], $opts );
-		foreach ( $opts[1] as $i => $opt ) {
+		return $opts[1];
+	}
+
+	/** Platsen (0-baserad) för ett inskickat värde bland alternativen, eller null. Klarar pipes (Etikett|värde). */
+	public static function option_index( $form_body, $name, $posted ) {
+		$posted = trim( (string) $posted );
+		if ( '' === $posted ) {
+			return null;
+		}
+		foreach ( self::tag_options( $form_body, $name ) as $i => $opt ) {
 			$parts = explode( '|', $opt );
 			if ( trim( $parts[0] ) === $posted || ( isset( $parts[1] ) && trim( $parts[1] ) === $posted ) ) {
-				return isset( self::ROOM_INDEX[ $i ] ) ? self::ROOM_INDEX[ $i ] : '';
+				return $i;
 			}
 		}
-		return '';
+		return null;
+	}
+
+	/**
+	 * Mailet till oss får originalformulärets (svenska) värden i listorna, oavsett
+	 * vilket språk formuläret skickades från (Pär, 2026-11-25). Bokningsmailen läses
+	 * av en automation som förutsätter svenska värden, och översatta formulär skickar
+	 * annars t.ex. "Elsykkel" i stället för "Elcykel". Värdet räknas fram efter
+	 * position: samma plats i originalformulärets lista. Gäller bara Mail (1);
+	 * bekräftelsen till kunden, Mail (2), behåller kundens språk. Flamingo sparar
+	 * det inskickade värdet som förut.
+	 */
+	public static function swedish_mail_value( $replaced, $submitted, $html = false, $mail_tag = null ) {
+		if ( ! class_exists( 'WPCF7_Mail' ) || ! is_object( $mail_tag ) || '' === self::current_tripcode() ) {
+			return $replaced;
+		}
+		$mail = WPCF7_Mail::get_current();
+		if ( ! $mail || ! method_exists( $mail, 'name' ) || 'mail' !== $mail->name() ) {
+			return $replaced;
+		}
+		$name    = method_exists( $mail_tag, 'field_name' ) ? (string) $mail_tag->field_name() : '';
+		$form_id = isset( $_POST['_wpcf7'] ) ? (int) $_POST['_wpcf7'] : 0; // phpcs:ignore WordPress.Security.NonceVerification
+		$orig_id = self::original_form_id( $form_id );
+		if ( '' === $name || ! $form_id || ! $orig_id || $orig_id === $form_id ) {
+			return $replaced;
+		}
+		$posted_body = (string) get_post_meta( $form_id, '_form', true );
+		$orig_opts   = self::tag_options( (string) get_post_meta( $orig_id, '_form', true ), $name );
+		if ( ! $orig_opts || ! self::tag_options( $posted_body, $name ) ) {
+			return $replaced;
+		}
+		$raw = method_exists( $mail_tag, 'tag_name' ) && 0 === strpos( (string) $mail_tag->tag_name(), '_raw_' );
+		$out = array();
+		foreach ( (array) $submitted as $value ) {
+			$i = self::option_index( $posted_body, $name, $value );
+			if ( null === $i || ! isset( $orig_opts[ $i ] ) ) {
+				return $replaced; // Okänt värde: hellre det inskickade värdet än ett gissat.
+			}
+			$parts = explode( '|', $orig_opts[ $i ] );
+			$out[] = trim( $raw || ! isset( $parts[1] ) ? $parts[0] : $parts[1] );
+		}
+		if ( ! $out ) {
+			return $replaced;
+		}
+		$text = implode( ', ', $out );
+		return $html ? esc_html( $text ) : $text;
+	}
+
+	/** Originalet (WPML:s standardspråk) av ett formulär; samma id utan WPML. */
+	public static function original_form_id( $form_id ) {
+		$form_id = (int) $form_id;
+		if ( ! $form_id ) {
+			return 0;
+		}
+		$default = apply_filters( 'wpml_default_language', null );
+		if ( ! $default ) {
+			return $form_id;
+		}
+		$orig = apply_filters( 'wpml_object_id', $form_id, 'wpcf7_contact_form', true, $default );
+		return $orig ? (int) $orig : $form_id;
 	}
 
 	/* ------------------------------------------------------------------
@@ -485,19 +559,30 @@ final class CV_Bokningsval {
 		return ! call_user_func( $dns, 'gmail.com.', 'MX' );
 	}
 
-	/** Felmeddelandet på formulärets språk (_wpcf7_locale), annars svenska. */
+	/** Felmeddelandet på formulärets språk (_wpcf7_locale): svenska, norska, danska, finska, annars engelska. */
 	public static function message( $key ) {
 		$locale = isset( $_POST['_wpcf7_locale'] ) ? strtolower( (string) $_POST['_wpcf7_locale'] ) : ''; // phpcs:ignore WordPress.Security.NonceVerification
-		$lang   = preg_match( '/^(nb|nn|no)/', $locale ) ? 'no' : ( '' === $locale || 0 === strpos( $locale, 'sv' ) ? 'sv' : 'en' );
+		$lang   = 'en';
+		if ( '' === $locale || 0 === strpos( $locale, 'sv' ) ) {
+			$lang = 'sv';
+		} elseif ( preg_match( '/^(nb|nn|no)/', $locale ) ) {
+			$lang = 'no';
+		} elseif ( preg_match( '/^(da|fi)/', $locale, $l ) ) {
+			$lang = $l[1];
+		}
 		$texts  = array(
 			'email'    => array(
 				'sv' => 'Kontrollera e-postadressen. Domänen efter @ kan inte ta emot e-post.',
 				'no' => 'Kontroller e-postadressen. Domenet etter @ kan ikke motta e-post.',
+				'da' => 'Kontrollér e-mailadressen. Domænet efter @ kan ikke modtage e-mails.',
+				'fi' => 'Tarkista sähköpostiosoite. @-merkin jälkeinen verkkotunnus ei voi vastaanottaa sähköpostia.',
 				'en' => 'Please check the email address. The domain after @ cannot receive email.',
 			),
 			'postcode' => array(
 				'sv' => 'Kontrollera postnumret.',
 				'no' => 'Kontroller postnummeret.',
+				'da' => 'Kontrollér postnummeret.',
+				'fi' => 'Tarkista postinumero.',
 				'en' => 'Please check the postal code.',
 			),
 		);
@@ -1338,6 +1423,53 @@ final class CV_Bokningsval {
 		return $issues;
 	}
 
+	/** Taggarna i en mailmall ([namn], [/namn]), med antal. */
+	public static function mail_tags( $mail ) {
+		$text = is_array( $mail ) ? ( ( isset( $mail['subject'] ) ? $mail['subject'] : '' ) . "\n" . ( isset( $mail['body'] ) ? $mail['body'] : '' ) ) : (string) $mail;
+		preg_match_all( '#\[/?[A-Za-z_][A-Za-z0-9_-]*\]#', $text, $m );
+		return array_count_values( $m[0] );
+	}
+
+	/**
+	 * Skillnader i en översatt mailmall: taggar som saknas (t.ex. översatta eller
+	 * borttagna [cvb-…]-block och fälttaggar) och block som inte stängs. Texterna jämförs inte.
+	 *
+	 * @return string[]
+	 */
+	public static function compare_mail( $original, $translated, $label ) {
+		$a = self::mail_tags( $original );
+		if ( ! $a ) {
+			return array();
+		}
+		$b      = self::mail_tags( $translated );
+		$issues = array();
+		$miss   = array_keys( array_diff_key( $a, $b ) );
+		if ( $miss ) {
+			$issues[] = $label . ' saknar ' . implode( ' ', $miss );
+		}
+		foreach ( $b as $tag => $n ) {
+			if ( 0 === strpos( $tag, '[cvb-' ) && 'cvb-reskod' !== trim( $tag, '[]' ) ) {
+				$close = '[/' . substr( $tag, 1 );
+				if ( ( isset( $b[ $close ] ) ? $b[ $close ] : 0 ) !== $n ) {
+					$issues[] = $label . ': ' . $tag . ' stängs inte med ' . $close;
+				}
+			}
+		}
+		return $issues;
+	}
+
+	/**
+	 * CF7 Skins-stilen följer inte med till WPML-översättningen (den norska
+	 * saknade den 2026-11-18). Varnar när översättningen inte har originalets stil.
+	 */
+	public static function compare_skin( $original_id, $translated_id ) {
+		$style = get_post_meta( $original_id, 'cf7s_style', true );
+		if ( ! $style || get_post_meta( $translated_id, 'cf7s_style', true ) === $style ) {
+			return array();
+		}
+		return array( 'har inte samma CF7 Skins-stil som originalet (fliken Skins i Contact Form 7)' );
+	}
+
 	/**
 	 * Problem med det officiella formulärets översättningar: språk som saknar
 	 * översättning och översättningar vars struktur skiljer sig från originalet.
@@ -1367,7 +1499,11 @@ final class CV_Bokningsval {
 			if ( (int) $m['post_id'] === (int) $original['post_id'] ) {
 				continue;
 			}
-			$issues = self::compare_structure( $original['body'], $m['body'] );
+			$issues = array_merge(
+				self::compare_structure( $original['body'], $m['body'] ),
+				self::compare_mail( get_post_meta( $original['post_id'], '_mail_2', true ), get_post_meta( $m['post_id'], '_mail_2', true ), 'Mail (2)' ),
+				self::compare_skin( $original['post_id'], $m['post_id'] )
+			);
 			if ( $issues ) {
 				$result['differs'][ isset( $m['lang'] ) && $m['lang'] ? $m['lang'] : '#' . $m['post_id'] ] = $issues;
 			}

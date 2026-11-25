@@ -121,7 +121,11 @@ Tillägget lägger också till lite luft mellan formulärets delar: kunden, resa
 ### Översättningar (WPML)
 Översätt formuläret i WPML, även mailen. Ändras det svenska formuläret måste översättningarna uppdateras. Tillägget jämför varje översättning med originalet och **varnar** överst på sidan Bokningsformulär, i Contact Form 7 och på kontrollpanelen om något fält, alternativ eller språk saknas. Texterna jämförs inte.
 
-Utseendet (CF7 Skins) väljs per formulär och följer inte med till översättningen. Välj samma stil på varje språk.
+Tillägget varnar också om översättningens **Mail (2)** saknar taggar som originalet har, t.ex. en `[cvb-…]`-tagg eller `[hjalm-1]` som blivit översatt, eller om ett `[cvb-…]`-block inte stängs. Taggarna inom hakparenteser får aldrig översättas.
+
+Utseendet (CF7 Skins) väljs per formulär och följer inte med till översättningen. Välj samma stil på varje språk; tillägget varnar när stilen skiljer sig.
+
+**Mailet till oss är alltid på svenska**, även värdena. Väljer kunden t.ex. "Sähköpyörä" i det finska formuläret står det "Elcykel" i mailet till oss, eftersom alternativen räknas efter plats i listan. Bekräftelsen till kunden behåller kundens språk.
 
 ---
 
