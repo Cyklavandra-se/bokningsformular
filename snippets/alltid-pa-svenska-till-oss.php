@@ -1,16 +1,16 @@
 <?php
 /**
  * KOPIA för dokumentation – laddas inte av tillägget. Originalet ligger i Code Snippets
- * på sajten ("Bokningsformulär - alltid på svenska till oss"). Inklistrad av Pär 2026-11-25.
+ * på sajten ("Bokningsformulär - alltid på svenska till oss"). Inklistrad av Pär 2026-11-25;
+ * del 2 borttagen samma dag (Pär provbokade på norska: kunden får norska värden, vi svenska).
  *
  * Cykla & Vandra – bokningsmejlet till oss är alltid på svenska
  *
  * Gäller alla CF7-formulär som är översättningar (WPML) av ett svenskt formulär:
  * 1. Mejlet till oss (fliken Mail) byggs från det SVENSKA originalformulärets mall,
  *    oavsett vad som står i det översatta formulärets Mail-flik.
- * 2. Kundens val i rullistor, radioknappar och kryssrutor (fakturaval, cykeltyp, hjälm …)
- *    översätts tillbaka till svenska utifrån placeringen i listan:
- *    det andra alternativet på norska blir det andra alternativet i det svenska formuläret.
+ * 2. (Borttagen. Kundens val blir svenska i mailet till oss genom tillägget
+ *    Bokningsformulär, swedish_mail_value(), sedan 1.20.0.)
  * 3. Raden "Språk: sv/no/…" läggs in under BOKNING, så att automationen vet vilket språk
  *    kunden bokade på.
  *
@@ -48,42 +48,8 @@ function cv_original_form( $form ) {
 	return $orig ? $orig : null;
 }
 
-// 2. Kundens val -> svenska alternativ (samma placering i listan)
-add_filter( 'wpcf7_posted_data', function ( $posted ) {
-	if ( ! class_exists( 'WPCF7_ContactForm' ) ) {
-		return $posted;
-	}
-	$form = WPCF7_ContactForm::get_current();
-	$orig = cv_original_form( $form );
-	if ( ! $orig ) {
-		return $posted;
-	}
-
-	$orig_tags = array();
-	foreach ( $orig->scan_form_tags() as $t ) {
-		if ( ! empty( $t->name ) ) {
-			$orig_tags[ $t->name ] = $t;
-		}
-	}
-
-	$tags = $form->scan_form_tags( array( 'basetype' => array( 'select', 'radio', 'checkbox' ) ) );
-	foreach ( $tags as $tag ) {
-		$name = $tag->name;
-		if ( empty( $name ) || ! isset( $posted[ $name ], $orig_tags[ $name ] ) ) {
-			continue;
-		}
-		$from = array_values( (array) $tag->values );
-		$to   = array_values( (array) $orig_tags[ $name ]->values );
-		$map  = function ( $v ) use ( $from, $to ) {
-			$i = array_search( $v, $from, true );
-			return ( false !== $i && isset( $to[ $i ] ) ) ? $to[ $i ] : $v;   // okänt värde lämnas som det är
-		};
-		$posted[ $name ] = is_array( $posted[ $name ] )
-			? array_map( $map, $posted[ $name ] )
-			: $map( $posted[ $name ] );
-	}
-	return $posted;
-} );
+// 2. (Borttagen 2026-11-25: gjorde om listvärdena till svenska i hela inskicket, även i
+//    Mail (2) till kunden. Tillägget gör det sedan 1.20.0 bara i mailet till oss.)
 
 // 1 och 3. Svensk mejlmall + "Språk:"-raden (bara mejlet till oss, inte Mail 2)
 add_action( 'wpcf7_before_send_mail', function ( $form ) {
